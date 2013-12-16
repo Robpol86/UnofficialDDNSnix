@@ -8,7 +8,6 @@ Python >= 2.6
 
 from __future__ import division
 from __future__ import print_function
-import __builtin__
 import StringIO
 import logging
 import logging.handlers
@@ -82,6 +81,7 @@ def generate_logging_config(config):
 
         [handler_null]
         class=libs.NullHandler
+        args=()
         """
     )
 
@@ -128,14 +128,6 @@ def generate_logging_config(config):
     draft.close()
     final.seek(0)
     return final
-
-
-def print(*args, **kwargs):
-    """Decorator for print() function, to add the term parameter to call sys.exit(n)."""
-    term = kwargs.pop('term', None)
-    __builtin__.print(*args, **kwargs)
-    if term is not None:
-        sys.exit(term)
 
 
 def get_config(cli_args, test=False):
@@ -202,4 +194,3 @@ def get_config(cli_args, test=False):
 
     # Done.
     return config
-

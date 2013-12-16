@@ -26,7 +26,6 @@ Options:
 from __future__ import division
 from __future__ import print_function
 from contextlib import closing
-from libs import print
 from docopt import docopt
 import libs
 import logging
@@ -47,12 +46,12 @@ if __name__ == "__main__":
     try:
         config = libs.get_config(docopt(__doc__, version=__version__))  # Get CLI args/options and parse config file.
     except libs.ConfigError as e:
-        config = dict()
-        print("ERROR: %s" % e.message, file=sys.stderr, term=1)
+        print("ERROR: %s" % e.message, file=sys.stderr)
+        sys.exit(1)
     with closing(libs.generate_logging_config(config)) as f:
         try:
-            logging.config.fileConfig(f)
+            logging.config.fileConfig(f)  # Setup logging.
         except IOError:
-            print("ERROR: Unable to write to file %s" % config['log'], file=sys.stderr, term=1)
+            print("ERROR: Unable to write to file %s" % config['log'], file=sys.stderr)
+            sys.exit(1)
     main(config)
-
