@@ -2,6 +2,9 @@
 """An unofficial dynamic DNS (DDNS) service for Name.com domains.
 https://github.com/Robpol86/UnofficialDDNSnix
 
+You must specify (either as command line options or defined in a configuration file) a username,
+password, and domain or subdomain name to update with this host's public IP address.
+
 Usage:
     UnofficialDDNS.py -c FILE [-dqv] [-i MINS] [-l FILE] [-n DOMAIN] [-p PASSWD] [-u USER]
     UnofficialDDNS.py -n DOMAIN -p PASSWD -u USER [-dqv] [-i MINS] [-l FILE]
@@ -9,18 +12,18 @@ Usage:
     UnofficialDDNS.py --version
 
 Options:
-    -c FILE --config=FILE           Configuration file. Overrides command line options.
-    -d --daemon                     Launch as a daemon (runs in the background).
-    -h --help                       Show this screen.
-    -i MINS --interval=MINS         How many minutes to wait before updating (if changed) the domain.
-                                    [default: 60]
-    -l FILE --log=FILE              Log all printed messages to file (rotates monthly).
-    -n DOMAIN --domain=DOMAIN       Domain or subdomain name to be updated with the public IP address.
-    -p PASSWD --passwd=PASSWD       API password token (NOT your Name.com password).
-    -q --quiet                      Print no messages to terminal.
-    -u USER --user=USER             Username of the domain's account holder at the registrar.
-    -v --verbose                    Include lots of details in messages for troubleshooting.
-    --version                       Show version.
+    -c FILE --config=FILE       Configuration file. Overrides command line options.
+    -d --daemon                 Launch as a daemon (runs in the background). Implies --quiet.
+    -h --help                   Show this screen.
+    -i MINS --interval=MINS     How many minutes to wait before updating (if changed) the domain.
+                                [default: 60]
+    -l FILE --log=FILE          Log all printed messages to file (rotates monthly).
+    -n DOMAIN --domain=DOMAIN   Domain or subdomain name to be updated with the public IP address.
+    -p PASSWD --passwd=PASSWD   API password token (NOT your Name.com password).
+    -q --quiet                  Print no messages to terminal.
+    -u USER --user=USER         Username of the domain's account holder at the registrar.
+    -v --verbose                Include lots of details in messages for troubleshooting.
+    --version                   Show version.
 """
 
 from __future__ import division
@@ -54,4 +57,5 @@ if __name__ == "__main__":
         except IOError:
             print("ERROR: Unable to write to file %s" % config['log'], file=sys.stderr)
             sys.exit(1)
+    logging.info("Starting UnofficialDDNS version %s" % __version__)
     main(config)

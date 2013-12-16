@@ -61,7 +61,7 @@ def generate_logging_config(config):
     final = StringIO.StringIO()
     level = "INFO" if not config['verbose'] else "DEBUG"
     log = config['log']
-    quiet = config['quiet']
+    quiet = any([config['quiet'], config['daemon']])
 
     # Write static data to the pseudo config file.
     draft.write(
