@@ -17,7 +17,7 @@ def log_samples():
     logging.warn("Test warn testing.")
     logging.error("Test error testing.")
     logging.critical("Test critical testing.")
-    return time.strftime("%Y-%m-%d %H:%M:%S")
+    return time.strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def log_samples_named():
@@ -28,7 +28,7 @@ def log_samples_named():
     logger.warn("Test warn testing.")
     logger.error("Test error testing.")
     logger.critical("Test critical testing.")
-    return time.strftime("%Y-%m-%d %H:%M:%S")
+    return time.strftime("%Y-%m-%dT%H:%M:%S")
 
 
 class TestLogging(unittest.TestCase):

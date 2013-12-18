@@ -30,9 +30,11 @@ from __future__ import division
 from __future__ import print_function
 from contextlib import closing
 from docopt import docopt
+import daemon
 import libs
 import logging
 import logging.config
+import os
 import signal
 import sys
 
@@ -46,16 +48,30 @@ def main(config):
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, lambda a, b: sys.exit(0))  # Properly handle Control+C
+
+    # Get CLI args/options and parse config file.
     try:
-        config = libs.get_config(docopt(__doc__, version=__version__))  # Get CLI args/options and parse config file.
+        config = libs.get_config(docopt(__doc__, version=__version__))
     except libs.ConfigError as e:
         print("ERROR: %s" % e.message, file=sys.stderr)
         sys.exit(1)
+
+    # Initialize logging.
+    umask = 0o027
+    os.umask(umask)
     with closing(libs.generate_logging_config(config)) as f:
         try:
             logging.config.fileConfig(f)  # Setup logging.
         except IOError:
             print("ERROR: Unable to write to file %s" % config['log'], file=sys.stderr)
             sys.exit(1)
+        sys.excepthook = lambda t, v, b: logging.critical("Uncaught exception!", exc_info=(t, v, b))  # Log exceptions.
     logging.info("Starting UnofficialDDNS version %s" % __version__)
-    main(config)
+
+    # Daemonize if desired. Otherwise run program normally.
+    if config['daemon']:
+        with daemon.DaemonContext(files_preserve=[h.stream for h in logging.getLogger().handlers], umask=umask):
+            logging.debug("Process has daemonized with pid %d successfully." % os.getpid())
+            main(config)
+    else:
+        main(config)

@@ -74,7 +74,7 @@ def generate_logging_config(config):
 
         [formatter_file]
         format=%(asctime)s %(levelname)-8s %(name)-15s %(message)s
-        datefmt=%Y-%m-%d %H:%M:%S
+        datefmt=%Y-%m-%dT%H:%M:%S
 
         [loggers]
         keys=root
