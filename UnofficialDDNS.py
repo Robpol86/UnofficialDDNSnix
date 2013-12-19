@@ -30,6 +30,7 @@ from __future__ import division
 from __future__ import print_function
 from contextlib import closing
 from docopt import docopt
+import atexit
 import daemon
 import libs
 import logging
@@ -39,6 +40,7 @@ import signal
 import sys
 
 
+__program__ = 'UnofficialDDNS'
 __version__ = '0.0.1'
 
 
@@ -65,8 +67,9 @@ if __name__ == "__main__":
         except IOError:
             print("ERROR: Unable to write to file %s" % config['log'], file=sys.stderr)
             sys.exit(1)
-        sys.excepthook = lambda t, v, b: logging.critical("Uncaught exception!", exc_info=(t, v, b))  # Log exceptions.
-    logging.info("Starting UnofficialDDNS version %s" % __version__)
+    sys.excepthook = lambda t, v, b: logging.critical("Uncaught exception!", exc_info=(t, v, b))  # Log exceptions.
+    atexit.register(lambda: logging.info("%s pid %d shutting down." % (__program__, os.getpid())))  # Log when exiting.
+    logging.info("Starting %s version %s" % (__program__, __version__))
 
     # Daemonize if desired. Otherwise run program normally.
     if config['daemon']:

@@ -1,9 +1,6 @@
 #!/usr/bin/env python2.6
 """Classes and functions for UnofficialDDNSnix.
-
-Requirements
-------------
-Python >= 2.6
+https://github.com/Robpol86/UnofficialDDNSnix
 """
 
 from __future__ import division
@@ -131,7 +128,7 @@ def generate_logging_config(config):
 
 
 def get_config(cli_args, test=False):
-    """TODO Reads a config file and populates non-null CLI arguments. Updates docopt dictionary in-place."""
+    """Reads command line arguments/options and (if provided) reads/overrides settings from config file."""
     config = dict(daemon=False, quiet=False, verbose=False, interval=60, log=None, domain=None, passwd=None, user=None)
     # Read from command line.
     for option, value in ((o[2:], v) for o, v in cli_args.iteritems() if o[2:] in config):
