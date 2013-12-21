@@ -129,7 +129,8 @@ def generate_logging_config(config):
 
 def get_config(cli_args, test=False):
     """Reads command line arguments/options and (if provided) reads/overrides settings from config file."""
-    config = dict(daemon=False, quiet=False, verbose=False, interval=60, log=None, domain=None, passwd=None, user=None)
+    config = dict(daemon=False, quiet=False, verbose=False, interval=60, log=None, domain=None, passwd=None, user=None,
+                  pid=None)
     # Read from command line.
     for option, value in ((o[2:], v) for o, v in cli_args.iteritems() if o[2:] in config):
         if option in ('daemon', 'quiet', 'verbose') and value:
@@ -142,9 +143,9 @@ def get_config(cli_args, test=False):
             if not value:
                 raise ConfigError("%s in command line must be greater than 0." % option)
             config[option] = value
-        elif option == 'log' and value:
+        elif option in ('log', 'pid') and value:
             if not os.path.exists(os.path.dirname(value)):
-                raise ConfigError("Parent directory of log file does not exist.")
+                raise ConfigError("Parent directory of %s file does not exist." % option)
             config[option] = value
         elif value:
             config[option] = value

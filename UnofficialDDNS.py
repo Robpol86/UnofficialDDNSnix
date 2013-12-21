@@ -6,8 +6,8 @@ You must specify (either as command line options or defined in a configuration f
 password, and domain or subdomain name to update with this host's public IP address.
 
 Usage:
-    UnofficialDDNS.py -c FILE [-dqv] [-i MINS] [-l FILE] [-n DOMAIN] [-p PASSWD] [-u USER]
-    UnofficialDDNS.py -n DOMAIN -p PASSWD -u USER [-dqv] [-i MINS] [-l FILE]
+    UnofficialDDNS.py -c FILE [-dqv] [-i MINS] [-l FILE] [-n DOMAIN] [-p PASSWD] [-u USER] [--pid FILE]
+    UnofficialDDNS.py -n DOMAIN -p PASSWD -u USER [-dqv] [-i MINS] [-l FILE] [--pid FILE]
     UnofficialDDNS.py (-h | --help)
     UnofficialDDNS.py --version
 
@@ -20,6 +20,7 @@ Options:
     -l FILE --log=FILE          Log all printed messages to file (rotates monthly).
     -n DOMAIN --domain=DOMAIN   Domain or subdomain name to be updated with the public IP address.
     -p PASSWD --passwd=PASSWD   API password token (NOT your Name.com password).
+    --pid=FILE                  Path to optional PID file (enables single-instance enforcement).
     -q --quiet                  Print no messages to terminal.
     -u USER --user=USER         Username of the domain's account holder at the registrar.
     -v --verbose                Include lots of details in messages for troubleshooting.
@@ -36,6 +37,7 @@ import libs
 import logging
 import logging.config
 import os
+import pidfile
 import signal
 import sys
 
@@ -55,7 +57,7 @@ if __name__ == "__main__":
     try:
         config = libs.get_config(docopt(__doc__, version=__version__))
     except libs.ConfigError as e:
-        print("ERROR: %s" % e.message, file=sys.stderr)
+        print("ERROR: %s" % e, file=sys.stderr)
         sys.exit(1)
 
     # Initialize logging.
@@ -71,10 +73,28 @@ if __name__ == "__main__":
     atexit.register(lambda: logging.info("%s pid %d shutting down." % (__program__, os.getpid())))  # Log when exiting.
     logging.info("Starting %s version %s" % (__program__, __version__))
 
-    # Daemonize if desired. Otherwise run program normally.
+    # Initialize context manager. Daemonize, use pid file, or both, or none!
+    cm = pidfile.PidFile(config['pid']) if config['pid'] else None
     if config['daemon']:
-        with daemon.DaemonContext(files_preserve=[h.stream for h in logging.getLogger().handlers], umask=umask):
-            logging.debug("Process has daemonized with pid %d successfully." % os.getpid())
-            main(config)
+        cm = daemon.DaemonContext(files_preserve=[h.stream for h in logging.getLogger().handlers],
+                                  umask=umask, pidfile=cm)
+
+    # Run the program.
+    if cm:
+        try:
+            with cm:
+                if config['pid']:
+                    logging.debug("Process has daemonized with pid %d successfully." % os.getpid())
+                main(config)
+        except SystemExit as e:
+            if "Already running" in str(e):
+                logging.error("%s is already running!" % __program__)
+                sys.exit(1)
+            raise
+        except IOError as e:
+            if "Permission denied" == e.strerror and e.filename == config['pid']:
+                logging.error("Failed to write to pid file %s, %s" % (config['pid'], e.strerror))
+                sys.exit(1)
+            raise
     else:
         main(config)
