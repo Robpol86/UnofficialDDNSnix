@@ -36,6 +36,7 @@ class TestLogging(unittest.TestCase):
         if not hasattr(sys.stdout, "getvalue"):
             self.fail("need to run in buffered mode")
         self.log_file = tempfile.NamedTemporaryFile()
+        self.maxDiff = None
 
     def tearDown(self):
         self.log_file.close()
@@ -87,10 +88,10 @@ class TestLogging(unittest.TestCase):
         self.assertEqual(stderr_actual, stderr_expected)
 
         log_actual = self.log_file.read(1024)
-        log_expected = "%s INFO     root            Test info testing.\n" % timestamp
-        log_expected += "%s WARNING  root            Test warn testing.\n" % timestamp
-        log_expected += "%s ERROR    root            Test error testing.\n" % timestamp
-        log_expected += "%s CRITICAL root            Test critical testing.\n" % timestamp
+        log_expected = "%s INFO     root                           Test info testing.\n" % timestamp
+        log_expected += "%s WARNING  root                           Test warn testing.\n" % timestamp
+        log_expected += "%s ERROR    root                           Test error testing.\n" % timestamp
+        log_expected += "%s CRITICAL root                           Test critical testing.\n" % timestamp
         self.assertMultiLineEqual(log_actual, log_expected)
 
     def test_verbose(self):
@@ -124,10 +125,10 @@ class TestLogging(unittest.TestCase):
         self.assertEqual(stderr_actual, stderr_expected)
 
         log_actual = self.log_file.read(1024)
-        log_expected = "%s INFO     root            Test info testing.\n" % timestamp
-        log_expected += "%s WARNING  root            Test warn testing.\n" % timestamp
-        log_expected += "%s ERROR    root            Test error testing.\n" % timestamp
-        log_expected += "%s CRITICAL root            Test critical testing.\n" % timestamp
+        log_expected = "%s INFO     root                           Test info testing.\n" % timestamp
+        log_expected += "%s WARNING  root                           Test warn testing.\n" % timestamp
+        log_expected += "%s ERROR    root                           Test error testing.\n" % timestamp
+        log_expected += "%s CRITICAL root                           Test critical testing.\n" % timestamp
         self.assertMultiLineEqual(log_actual, log_expected)
 
     def test_quiet_verbose(self):
@@ -162,11 +163,11 @@ class TestLogging(unittest.TestCase):
         self.assertEqual(stderr_actual, stderr_expected)
 
         log_actual = self.log_file.read(1024)
-        log_expected = "%s DEBUG    root            Test debug testing.\n" % timestamp
-        log_expected += "%s INFO     root            Test info testing.\n" % timestamp
-        log_expected += "%s WARNING  root            Test warn testing.\n" % timestamp
-        log_expected += "%s ERROR    root            Test error testing.\n" % timestamp
-        log_expected += "%s CRITICAL root            Test critical testing.\n" % timestamp
+        log_expected = "%s DEBUG    root                           Test debug testing.\n" % timestamp
+        log_expected += "%s INFO     root                           Test info testing.\n" % timestamp
+        log_expected += "%s WARNING  root                           Test warn testing.\n" % timestamp
+        log_expected += "%s ERROR    root                           Test error testing.\n" % timestamp
+        log_expected += "%s CRITICAL root                           Test critical testing.\n" % timestamp
         self.assertMultiLineEqual(log_actual, log_expected)
 
     def test_quiet_logfile_verbose(self):
@@ -185,11 +186,11 @@ class TestLogging(unittest.TestCase):
         self.assertEqual(stderr_actual, stderr_expected)
 
         log_actual = self.log_file.read(1024)
-        log_expected = "%s DEBUG    root            Test debug testing.\n" % timestamp
-        log_expected += "%s INFO     root            Test info testing.\n" % timestamp
-        log_expected += "%s WARNING  root            Test warn testing.\n" % timestamp
-        log_expected += "%s ERROR    root            Test error testing.\n" % timestamp
-        log_expected += "%s CRITICAL root            Test critical testing.\n" % timestamp
+        log_expected = "%s DEBUG    root                           Test debug testing.\n" % timestamp
+        log_expected += "%s INFO     root                           Test info testing.\n" % timestamp
+        log_expected += "%s WARNING  root                           Test warn testing.\n" % timestamp
+        log_expected += "%s ERROR    root                           Test error testing.\n" % timestamp
+        log_expected += "%s CRITICAL root                           Test critical testing.\n" % timestamp
         self.assertMultiLineEqual(log_actual, log_expected)
 
     def test_logfile_multiple_loggers(self):
@@ -212,14 +213,14 @@ class TestLogging(unittest.TestCase):
         self.assertEqual(stderr_actual, stderr_expected)
 
         log_actual = self.log_file.read(1024)
-        log_expected = "%s INFO     root            Test info testing.\n" % timestamp
-        log_expected += "%s WARNING  root            Test warn testing.\n" % timestamp
-        log_expected += "%s ERROR    root            Test error testing.\n" % timestamp
-        log_expected += "%s CRITICAL root            Test critical testing.\n" % timestamp
-        log_expected += "%s INFO     test_logging    Test info testing.\n" % timestamp_named
-        log_expected += "%s WARNING  test_logging    Test warn testing.\n" % timestamp_named
-        log_expected += "%s ERROR    test_logging    Test error testing.\n" % timestamp_named
-        log_expected += "%s CRITICAL test_logging    Test critical testing.\n" % timestamp_named
+        log_expected = "%s INFO     root                           Test info testing.\n" % timestamp
+        log_expected += "%s WARNING  root                           Test warn testing.\n" % timestamp
+        log_expected += "%s ERROR    root                           Test error testing.\n" % timestamp
+        log_expected += "%s CRITICAL root                           Test critical testing.\n" % timestamp
+        log_expected += "%s INFO     test_logging                   Test info testing.\n" % timestamp_named
+        log_expected += "%s WARNING  test_logging                   Test warn testing.\n" % timestamp_named
+        log_expected += "%s ERROR    test_logging                   Test error testing.\n" % timestamp_named
+        log_expected += "%s CRITICAL test_logging                   Test critical testing.\n" % timestamp_named
         self.assertMultiLineEqual(log_actual, log_expected)
 
 

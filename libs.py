@@ -70,7 +70,7 @@ def generate_logging_config(config):
         format=%(message)s
 
         [formatter_file]
-        format=%(asctime)s %(levelname)-8s %(name)-15s %(message)s
+        format=%(asctime)s %(levelname)-8s %(name)-30s %(message)s
         datefmt=%Y-%m-%dT%H:%M:%S
 
         [loggers]
@@ -130,7 +130,7 @@ def generate_logging_config(config):
 def get_config(cli_args, test=False):
     """Reads command line arguments/options and (if provided) reads/overrides settings from config file."""
     config = dict(daemon=False, quiet=False, verbose=False, interval=60, log=None, domain=None, passwd=None, user=None,
-                  pid=None)
+                  pid=None, registrar=None)
     # Read from command line.
     for option, value in ((o[2:], v) for o, v in cli_args.iteritems() if o[2:] in config):
         if option in ('daemon', 'quiet', 'verbose') and value:
@@ -149,6 +149,7 @@ def get_config(cli_args, test=False):
             config[option] = value
         elif value:
             config[option] = value
+    config['registrar'] = 'name.com'  # In the future I might support other registrars.
 
     # Read from configuration file, if specified. Overrides command line.
     config_file = dict()
