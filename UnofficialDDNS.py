@@ -58,20 +58,17 @@ def main(config):
     while True:
         logger.debug("Initializing %s as the context manager." % Registrar.__name__)
 
-        with Registrar(config) as session:
-            try:
-                session.get_current_ip()
+        try:
+            with Registrar(config) as session:
                 logger.info("Current public IP is %s." % session.current_ip)
-                session.authenticate()
-                session.validate_domain()
-                session.get_records()
                 if session.current_ip != session.recorded_ip:
                     logger.info("Recorded IP %s does not match public IP. Updating domain." % session.recorded_ip)
                     session.update_record()
                     logger.info("Recorded IP/DNS record is now %s." % session.recorded_ip)
-                session.logout()
-            except Registrar.RegistrarException:
-                logger.exception("An error has occurred while communicating with the registrar.")
+                else:
+                    logger.info("Recorded IP matches current IP. Nothing to do.")
+        except Registrar.RegistrarException:
+            logger.exception("An error has occurred while communicating with the registrar.")
 
         logger.debug("Sleeping for %d seconds" % sleep)
         time.sleep(sleep)
