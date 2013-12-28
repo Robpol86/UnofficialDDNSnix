@@ -59,7 +59,7 @@ class TestRegistrarNameSimulated(unittest.TestCase):
         if not hasattr(sys.stdout, "getvalue"):
             self.fail("need to run in buffered mode")
         self.maxDiff = None
-        self.session = RegistrarName(dict())
+        self.session = RegistrarName(dict(user="USER", passwd="PASSWD"))
         self.session._url_base = "http://127.0.0.1"
         self.session._url_get_current_ip = self.session._url_base + "/hello"
         self.session._url_authenticate = self.session._url_base + "/login"
@@ -94,9 +94,43 @@ class TestRegistrarNameSimulated(unittest.TestCase):
         self.assertEqual(cm.exception.message, "'client_ip' is not an IP address.")
 
     def test_get_current_ip_success(self):
-        initialize_simulation('{"bar":["baz", null, 1.0, 2], "client_ip":"127.0.0.1"}')
+        data = """{"result":{"code":100,"message":"Command Successful"},"service":"Name.com API Test Server",""" + \
+            """"server_date":"2013-12-28 04:46:38","version":"2.0","language":"en","client_ip":"127.0.0.1"}"""
+        initialize_simulation(data)
         self.session.get_current_ip()
         self.assertEqual(self.session.current_ip, "127.0.0.1")
+
+    def test_authenticate_missing_json_key(self):
+        initialize_simulation('["foo", {"bar":["baz", null, 1.0, 2]}]')
+        with self.assertRaises(RegistrarName.RegistrarException) as cm:
+            self.session.authenticate()
+        self.assertEqual(cm.exception.message, "'session_token' not in JSON.")
+
+    def test_authenticate_missing_json_value(self):
+        initialize_simulation('{"bar":["baz", null, 1.0, 2], "session_token":""}')
+        with self.assertRaises(RegistrarName.RegistrarException) as cm:
+            self.session.authenticate()
+        self.assertEqual(cm.exception.message, "'session_token' is invalid.")
+
+    def test_authenticate_invalid_json_value(self):
+        initialize_simulation('{"bar":["baz", null, 1.0, 2], "session_token":"127..0.1"}')
+        with self.assertRaises(RegistrarName.RegistrarException) as cm:
+            self.session.authenticate()
+        self.assertEqual(cm.exception.message, "'session_token' is invalid.")
+
+    def test_authenticate_bad_credentials(self):
+        data = """{"result":{"code":221,"message":"Authorization Error - Username Or Ip Token Invalid"}}"""
+        initialize_simulation(data)
+        with self.assertRaises(RegistrarName.RegistrarException) as cm:
+            self.session.authenticate()
+        self.assertEqual(cm.exception.message, "Authorization Error.")
+
+    def test_authenticate_success(self):
+        data = """{"result":{"code":100,"message":"Command Successful"},""" + \
+            """"session_token":"2352e5c5a0127d2155377664a5543f22a70be187"}"""
+        initialize_simulation(data)
+        self.session.authenticate()
+        self.assertEqual(self.session._session_token, "2352e5c5a0127d2155377664a5543f22a70be187")
 
 
 if __name__ == "__main__":

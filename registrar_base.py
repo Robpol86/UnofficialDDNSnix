@@ -84,10 +84,10 @@ class RegistrarBase(object):
         logger.debug("Method get_current_ip start.")
         data = self._request_json(self._url_get_current_ip)
         if 'client_ip' not in data:
-            logger.error("Invalid JSON: %s" % data)
+            logger.error("Invalid response: %s" % data)
             raise self.RegistrarException("'client_ip' not in JSON.")
         if not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", data['client_ip']):
-            logger.error("Invalid JSON: %s" % data)
+            logger.error("Invalid response: %s" % data)
             raise self.RegistrarException("'client_ip' is not an IP address.")
         self.current_ip = data['client_ip']
         logger.debug("Method get_current_ip end.")
@@ -95,6 +95,18 @@ class RegistrarBase(object):
     def authenticate(self):
         logger = logging.getLogger('%s.authenticate' % self.__class__.__name__)
         logger.debug("Method authenticate start.")
+        post_data = json.dumps(dict(username=self.config['user'], api_token=self.config['passwd']))
+        data = self._request_json(self._url_authenticate, post_data)
+        if isinstance(data, dict) and "Authorization Error" in data.get('result', {}).get('message', ''):
+            logger.error("Invalid username and/or password.")
+            raise self.RegistrarException("Authorization Error.")
+        if 'session_token' not in data:
+            logger.error("Invalid response: %s" % data)
+            raise self.RegistrarException("'session_token' not in JSON.")
+        if not re.match(r"^([A-Fa-f0-9]){10,46}$", data['session_token']):
+            logger.error("Invalid response: %s" % data)
+            raise self.RegistrarException("'session_token' is invalid.")
+        self._session_token = data['session_token']
         logger.debug("Method authenticate end.")
 
     def validate_domain(self):
