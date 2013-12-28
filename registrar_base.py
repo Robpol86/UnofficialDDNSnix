@@ -59,7 +59,11 @@ class RegistrarBase(object):
         except urllib2.URLError as e:
             if "error timed out" in str(e):
                 raise self.RegistrarException("Connection to %s timed out." % url)
-            raise
+            elif "Connection refused" in str(e):
+                raise self.RegistrarException("Connection to %s refused." % url)
+            elif "nodename nor servname provided, or not known" in str(e):
+                raise self.RegistrarException("Connection to %s failed, DNS resolution failure." % url)
+            raise self.RegistrarException("URLError on %s: %s" % (url, e))
 
         # Validate the response.
         if url != response.geturl():
@@ -71,7 +75,7 @@ class RegistrarBase(object):
         try:
             return json.load(response)
         except ValueError:
-            response.seek(0)
+            response.fp.seek(0)
             logger.error("Invalid JSON: %s" % response.read())
             raise self.RegistrarException("Invalid JSON.")
 
@@ -79,9 +83,12 @@ class RegistrarBase(object):
         logger = logging.getLogger('%s.get_current_ip' % self.__class__.__name__)
         logger.debug("Method get_current_ip start.")
         data = self._request_json(self._url_get_current_ip)
-        if 'client_ip' not in data or not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", data['client_ip']):
+        if 'client_ip' not in data:
             logger.error("Invalid JSON: %s" % data)
-            raise self.RegistrarException("'client_ip' not in JSON or is not an IP address.")
+            raise self.RegistrarException("'client_ip' not in JSON.")
+        if not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", data['client_ip']):
+            logger.error("Invalid JSON: %s" % data)
+            raise self.RegistrarException("'client_ip' is not an IP address.")
         self.current_ip = data['client_ip']
         logger.debug("Method get_current_ip end.")
 

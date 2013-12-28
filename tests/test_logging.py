@@ -1,12 +1,12 @@
 #!/usr/bin/env python2.6
 from contextlib import closing
+import libs
 import logging
 import logging.config
 import logging.handlers
 import sys
 import tempfile
 import time
-import libs
 import unittest
 
 
@@ -226,4 +226,3 @@ class TestLogging(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(buffer=True)
-

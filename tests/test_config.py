@@ -1,10 +1,10 @@
 #!/usr/bin/env python2.6
-import os
-import tempfile
-from docopt import docopt
 from UnofficialDDNS import __doc__ as uddns_doc
 from UnofficialDDNS import __version__ as uddns_ver
+from docopt import docopt
 import libs
+import os
+import tempfile
 import unittest
 
 
@@ -117,4 +117,3 @@ class TestConfig(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
