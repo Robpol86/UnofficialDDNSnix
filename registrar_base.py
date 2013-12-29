@@ -97,7 +97,7 @@ class RegistrarBase(object):
         logger.debug("Method authenticate start.")
         post_data = json.dumps(dict(username=self.config['user'], api_token=self.config['passwd']))
         data = self._request_json(self._url_authenticate, post_data)
-        if isinstance(data, dict) and "Authorization Error" in data.get('result', {}).get('message', ''):
+        if "Authorization Error" in data.get('result', {}).get('message', ''):
             logger.error("Invalid username and/or password.")
             raise self.RegistrarException("Authorization Error.")
         if 'session_token' not in data:
@@ -112,6 +112,15 @@ class RegistrarBase(object):
     def validate_domain(self):
         logger = logging.getLogger('%s.validate_domain' % self.__class__.__name__)
         logger.debug("Method validate_domain start.")
+        data = self._request_json(self._url_get_main_domain)
+        candidates = [d for d in data.get('domains', {}).keys() if self.config['domain'].endswith(d)]
+        if len(candidates) < 1:
+            logger.error("Registrar account has no authority over %s." % self.config['domain'])
+            raise self.RegistrarException("Domain not registered to this registrar's account.")
+        if len(candidates) > 1:
+            logger.error("Cannot figure out main domain: %s" % candidates)
+            raise ValueError
+        self._main_domain = candidates[0]
         logger.debug("Method validate_domain end.")
 
     def get_records(self):
@@ -127,4 +136,6 @@ class RegistrarBase(object):
     def logout(self):
         logger = logging.getLogger('%s.logout' % self.__class__.__name__)
         logger.debug("Method logout start.")
+        self._request_json(self._url_logout)
+        self._session_token = None
         logger.debug("Method logout end.")

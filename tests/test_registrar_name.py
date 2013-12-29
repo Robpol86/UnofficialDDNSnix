@@ -59,7 +59,7 @@ class TestRegistrarNameSimulated(unittest.TestCase):
         if not hasattr(sys.stdout, "getvalue"):
             self.fail("need to run in buffered mode")
         self.maxDiff = None
-        self.session = RegistrarName(dict(user="USER", passwd="PASSWD"))
+        self.session = RegistrarName(dict(user="USER", passwd="PASSWD", domain="sub.example.com"))
         self.session._url_base = "http://127.0.0.1"
         self.session._url_get_current_ip = self.session._url_base + "/hello"
         self.session._url_authenticate = self.session._url_base + "/login"
@@ -75,8 +75,14 @@ class TestRegistrarNameSimulated(unittest.TestCase):
             self.session._request_json(self.session._url_base)
         self.assertEqual(cm.exception.message, "Invalid JSON.")
 
-    def test_get_current_ip_missing_json_key(self):
+    def test_http_json_not_dict(self):
         initialize_simulation('["foo", {"bar":["baz", null, 1.0, 2]}]')
+        with self.assertRaises(RegistrarName.RegistrarException) as cm:
+            self.session._request_json(self.session._url_base)
+        self.assertEqual(cm.exception.message, "Unexpected JSON format. Expected top-level to be a dictionary.")
+
+    def test_get_current_ip_missing_json_key(self):
+        initialize_simulation('{"bar":["baz", null, 1.0, 2]}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
             self.session.get_current_ip()
         self.assertEqual(cm.exception.message, "'client_ip' not in JSON.")
@@ -101,7 +107,7 @@ class TestRegistrarNameSimulated(unittest.TestCase):
         self.assertEqual(self.session.current_ip, "127.0.0.1")
 
     def test_authenticate_missing_json_key(self):
-        initialize_simulation('["foo", {"bar":["baz", null, 1.0, 2]}]')
+        initialize_simulation('{"bar":["baz", null, 1.0, 2]}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
             self.session.authenticate()
         self.assertEqual(cm.exception.message, "'session_token' not in JSON.")
@@ -131,6 +137,32 @@ class TestRegistrarNameSimulated(unittest.TestCase):
         initialize_simulation(data)
         self.session.authenticate()
         self.assertEqual(self.session._session_token, "2352e5c5a0127d2155377664a5543f22a70be187")
+
+    def test_validate_domain_candidates_none(self):
+        initialize_simulation('{"bar":["baz", null, 1.0, 2]}')
+        with self.assertRaises(RegistrarName.RegistrarException) as cm:
+            self.session.validate_domain()
+        self.assertEqual(cm.exception.message, "Domain not registered to this registrar's account.")
+
+    def test_validate_domain_candidates_error(self):
+        initialize_simulation('{"domains":{"example.com":0,"com":0}}')
+        with self.assertRaises(ValueError):
+            self.session.validate_domain()
+
+    def test_validate_domain_success_sub(self):
+        data = """{"result":{"code":100,"message":"Command Successful"},""" + \
+            """"domains":{"example.com":{"tld":"com"},"example.info":{"tld":"info"}}}"""
+        initialize_simulation(data)
+        self.session.validate_domain()
+        self.assertEqual(self.session._main_domain, "example.com")
+
+    def test_validate_domain_success_main(self):
+        data = """{"result":{"code":100,"message":"Command Successful"},""" + \
+            """"domains":{"example.com":{"tld":"com"},"example.info":{"tld":"info"}}}"""
+        initialize_simulation(data)
+        self.session.config['domain'] = "example.info"
+        self.session.validate_domain()
+        self.assertEqual(self.session._main_domain, "example.info")
 
 
 if __name__ == "__main__":
