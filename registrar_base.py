@@ -23,7 +23,7 @@ class RegistrarBase(object):
     def __init__(self, config):
         self.config = config
         self.current_ip = None
-        self.recorded_ip = None
+        self.recorded_ips = dict()  # {record_id: "ip_address", ...}
         self._main_domain = None
         self._session_token = None
 
@@ -39,13 +39,25 @@ class RegistrarBase(object):
             self.logout()
         self._session_token = None
 
+    class Payload(object):
+        """Bare-bones class to hold the raw data from the API as well as parsed JSON."""
+        def __init__(self, original_url, actual_url, post_data, response):
+            self.original_url = original_url
+            self.actual_url = actual_url
+            self.post_data = post_data
+            self.response = response
+            self.json = dict()
+            
+        def parse(self):
+            self.json = json.loads(self.response)
+
     class RegistrarException(Exception):
         """Exception to be raised inside RegistrarBase and its derivatives when a handled error occurs."""
         pass
 
     def _request_json(self, url, post_data=None):
-        """Handles HTTP connections and returns a JSON dictionary."""
-        logger = logging.getLogger('%s._request_json' % self.__class__.__name__)
+        """Handles HTTP connections and returns a Payload instance."""
+        logger = logging.getLogger('%s._request_json' % __name__)
         logger.debug("Opening connection to %s" % url)
         request = urllib2.Request(url, post_data)
         if self._session_token:
@@ -72,50 +84,51 @@ class RegistrarBase(object):
             raise self.RegistrarException("%s returned HTTP %d." % (response.geturl(), response.getcode()))
 
         # Parse the response into a JSON dictionary.
+        payload = self.Payload(url, response.geturl(), post_data, response.read())
         try:
-            return json.load(response)
+            payload.parse()
         except ValueError:
-            response.fp.seek(0)
-            logger.error("Invalid JSON: %s" % response.read())
+            logger.debug("Response: %s" % payload.response)
             raise self.RegistrarException("Invalid JSON.")
+        return payload
 
     def get_current_ip(self):
-        logger = logging.getLogger('%s.get_current_ip' % self.__class__.__name__)
+        logger = logging.getLogger('%s.get_current_ip' % __name__)
         logger.debug("Method get_current_ip start.")
         data = self._request_json(self._url_get_current_ip)
-        if 'client_ip' not in data:
-            logger.error("Invalid response: %s" % data)
+        logger.debug("Response: %s" % data.response)
+        logger.debug("JSON: %s" % data.json)
+        if 'client_ip' not in data.json:
             raise self.RegistrarException("'client_ip' not in JSON.")
-        if not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", data['client_ip']):
-            logger.error("Invalid response: %s" % data)
+        if not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", data.json['client_ip']):
             raise self.RegistrarException("'client_ip' is not an IP address.")
-        self.current_ip = data['client_ip']
+        self.current_ip = data.json['client_ip']
         logger.debug("Method get_current_ip end.")
 
     def authenticate(self):
-        logger = logging.getLogger('%s.authenticate' % self.__class__.__name__)
+        logger = logging.getLogger('%s.authenticate' % __name__)
         logger.debug("Method authenticate start.")
         post_data = json.dumps(dict(username=self.config['user'], api_token=self.config['passwd']))
         data = self._request_json(self._url_authenticate, post_data)
-        if "Authorization Error" in data.get('result', {}).get('message', ''):
-            logger.error("Invalid username and/or password.")
-            raise self.RegistrarException("Authorization Error.")
-        if 'session_token' not in data:
-            logger.error("Invalid response: %s" % data)
+        if 'session_token' not in data.json:
+            logger.debug("Response: %s" % data.response)
+            logger.debug("JSON: %s" % data.json)
             raise self.RegistrarException("'session_token' not in JSON.")
-        if not re.match(r"^([A-Fa-f0-9]){10,46}$", data['session_token']):
-            logger.error("Invalid response: %s" % data)
+        if not re.match(r"^([A-Fa-f0-9]){10,46}$", data.json['session_token']):
+            logger.debug("Response: %s" % data.response)
+            logger.debug("JSON: %s" % data.json)
             raise self.RegistrarException("'session_token' is invalid.")
-        self._session_token = data['session_token']
+        self._session_token = data.json['session_token']
         logger.debug("Method authenticate end.")
 
     def validate_domain(self):
-        logger = logging.getLogger('%s.validate_domain' % self.__class__.__name__)
+        logger = logging.getLogger('%s.validate_domain' % __name__)
         logger.debug("Method validate_domain start.")
         data = self._request_json(self._url_get_main_domain)
-        candidates = [d for d in data.get('domains', {}).keys() if self.config['domain'].endswith(d)]
+        logger.debug("Response: %s" % data.response)
+        logger.debug("JSON: %s" % data.json)
+        candidates = [d for d in data.json.get('domains', {}).keys() if self.config['domain'].endswith(d)]
         if len(candidates) < 1:
-            logger.error("Registrar account has no authority over %s." % self.config['domain'])
             raise self.RegistrarException("Domain not registered to this registrar's account.")
         if len(candidates) > 1:
             logger.error("Cannot figure out main domain: %s" % candidates)
@@ -124,17 +137,37 @@ class RegistrarBase(object):
         logger.debug("Method validate_domain end.")
 
     def get_records(self):
-        logger = logging.getLogger('%s.get_records' % self.__class__.__name__)
+        logger = logging.getLogger('%s.get_records' % __name__)
         logger.debug("Method get_records start.")
+        data = self._request_json(self._url_get_records_prefix + self._main_domain)
+        logger.debug("Response: %s" % data.response)
+        logger.debug("JSON: %s" % data.json)
+        candidates = dict([(d['record_id'], d['content']) for d in data.json.get('records', {}) if
+                           d['name'] == self.config['domain'] and d['type'] in ('A', 'CNAME')])
+        if candidates:
+            self.recorded_ips = candidates
         logger.debug("Method get_records end.")
 
-    def update_record(self):
-        logger = logging.getLogger('%s.update_record' % self.__class__.__name__)
-        logger.debug("Method update_record start.")
-        logger.debug("Method update_record end.")
+    def create_record(self):
+        logger = logging.getLogger('%s.create_record' % __name__)
+        logger.debug("Method create_record start.")
+        hostname = re.sub(self._main_domain + r"$", '', self.config['domain']).strip('.') or '.'
+        post_data = json.dumps(dict(hostname=hostname, type='A', content=self.current_ip, ttl=300, priority=10))
+        logger.debug("Sending POST data: %s" % post_data)
+        data = self._request_json(self._url_create_record_prefix + self._main_domain, post_data)
+        logger.debug("Response: %s" % data.response)
+        logger.debug("JSON: %s" % data.json)
+        logger.debug("Method create_record end.")
+
+    def delete_record(self, record_id):
+        logger = logging.getLogger('%s.delete_record' % __name__)
+        logger.debug("Method delete_record start.")
+        post_data = json.dumps(dict(record_id=record_id))
+        logger.debug("Sending POST data: %s" % post_data)
+        logger.debug("Method delete_record end.")
 
     def logout(self):
-        logger = logging.getLogger('%s.logout' % self.__class__.__name__)
+        logger = logging.getLogger('%s.logout' % __name__)
         logger.debug("Method logout start.")
         self._request_json(self._url_logout)
         self._session_token = None

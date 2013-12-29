@@ -61,14 +61,27 @@ def main(config):
         try:
             with Registrar(config) as session:
                 logger.info("Current public IP is %s." % session.current_ip)
-                if session.current_ip != session.recorded_ip:
-                    logger.info("Recorded IP %s does not match public IP. Updating domain." % session.recorded_ip)
-                    session.update_record()
-                    logger.info("Recorded IP/DNS record is now %s." % session.recorded_ip)
+                if len(session.recorded_ips) != 1 or session.recorded_ips.values()[0] != session.current_ip:
+                    logger.info("Too many records or recorded IP does not match public IP. Updating domain.")
+                    if session.current_ip not in session.recorded_ips.values():
+                        logger.info("Creating A record.")
+                        session.create_record()
+                    for (record, ip) in [i for i in session.recorded_ips.iteritems() if i[1] == session.current_ip][1:]:
+                        logger.info("Removing duplicate record ID %s with value %s." % (record, ip))
+                        session.delete_record(record)
+                    for (record, ip) in [i for i in session.recorded_ips.iteritems() if i[1] != session.current_ip]:
+                        logger.info("Removing old/incorrect record ID %s with value %s." % (record, ip))
+                        session.delete_record(record)
+                    logger.info("Done making changes.")
                 else:
                     logger.info("Recorded IP matches current IP. Nothing to do.")
-        except Registrar.RegistrarException:
-            logger.exception("An error has occurred while communicating with the registrar.")
+        except Registrar.RegistrarException as exc:
+            message = "An error has occurred while communicating with the registrar."
+            if config['debug']:
+                logger.exception(message)
+            else:
+                logger.error(message)
+                logger.error(exc)
 
         logger.debug("Sleeping for %d seconds" % sleep)
         time.sleep(sleep)
