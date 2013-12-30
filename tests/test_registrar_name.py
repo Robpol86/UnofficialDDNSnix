@@ -1,14 +1,11 @@
 #!/usr/bin/env python2.6
-from contextlib import closing
 from registrar_name import RegistrarName
 import StringIO
-import libs
-import logging.config
 import sys
 import unittest
 import urllib2
 
-# TODO: test logging. test get_records/create_record.
+# TODO: test create_record.
 def initialize_simulation(data):
     """Creates a simulated HTTP handler for all urllib2 operations, mimicking a web server."""
     s = StringIO.StringIO(data)
@@ -24,13 +21,27 @@ def initialize_simulation(data):
 
 
 # noinspection PyProtectedMember
-class TestRegistrarNameLive(unittest.TestCase):
+class TestRegistrarNameBase(unittest.TestCase):
+
+    success = """{"result":{"code":100,"message":"Command Successful"},"""
+
     def setUp(self):
         if not hasattr(sys.stdout, "getvalue"):
             self.fail("need to run in buffered mode")
         self.maxDiff = None
-        self.session = RegistrarName(dict())
+        self.session = RegistrarName(dict(user="USER", passwd="PASSWD", domain="sub.example.com"))
+        self.session._url_base = "http://127.0.0.1"
+        self.session._url_get_current_ip = self.session._url_base + "/hello"
+        self.session._url_authenticate = self.session._url_base + "/login"
+        self.session._url_get_main_domain = self.session._url_base + "/domain/list"
+        self.session._url_get_records_prefix = self.session._url_base + "/dns/list"
+        self.session._url_delete_record_prefix = self.session._url_base + "/dns/delete"
+        self.session._url_create_record_prefix = self.session._url_base + "/dns/create"
+        self.session._url_logout = self.session._url_base + "/logout"
 
+
+# noinspection PyProtectedMember
+class TestRegistrarNameLiveRequestJSON(TestRegistrarNameBase):
     def test_dns_unresolvable_timeout(self):
         url = "https://api.namse.com/api/hello"
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
@@ -57,31 +68,7 @@ class TestRegistrarNameLive(unittest.TestCase):
 
 
 # noinspection PyProtectedMember
-class TestRegistrarNameSimulatedBase(unittest.TestCase):
-
-    success = """{"result":{"code":100,"message":"Command Successful"},"""
-
-    def setUp(self):
-        if not hasattr(sys.stdout, "getvalue"):
-            self.fail("need to run in buffered mode")
-        self.maxDiff = None
-        config = libs.get_config({'--verbose': True, '--user': "USER", '--passwd': "PASSWD",
-                                  '--domain': "sub.example.com"})
-        with closing(libs.generate_logging_config(config)) as f:
-            logging.config.fileConfig(f)  # Setup logging.
-        self.session = RegistrarName(config)
-        self.session._url_base = "http://127.0.0.1"
-        self.session._url_get_current_ip = self.session._url_base + "/hello"
-        self.session._url_authenticate = self.session._url_base + "/login"
-        self.session._url_get_main_domain = self.session._url_base + "/domain/list"
-        self.session._url_get_records_prefix = self.session._url_base + "/dns/list"
-        self.session._url_delete_record_prefix = self.session._url_base + "/dns/delete"
-        self.session._url_create_record_prefix = self.session._url_base + "/dns/create"
-        self.session._url_logout = self.session._url_base + "/logout"
-
-
-# noinspection PyProtectedMember
-class TestRegistrarNameSimulatedRequestJSON(TestRegistrarNameSimulatedBase):
+class TestRegistrarNameSimulatedRequestJSON(TestRegistrarNameBase):
     def test_http_not_json(self):
         initialize_simulation("<body>This isn't JSON</body>")
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
@@ -101,7 +88,7 @@ class TestRegistrarNameSimulatedRequestJSON(TestRegistrarNameSimulatedBase):
         self.assertEqual(cm.exception.message, "API returned an error.")
 
 
-class TestRegistrarNameSimulatedGetCurrentIP(TestRegistrarNameSimulatedBase):
+class TestRegistrarNameSimulatedGetCurrentIP(TestRegistrarNameBase):
     def test_get_current_ip_missing_json_key(self):
         initialize_simulation(self.success + '"bar":["baz", null, 1.0, 2]}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
@@ -129,7 +116,7 @@ class TestRegistrarNameSimulatedGetCurrentIP(TestRegistrarNameSimulatedBase):
 
 
 # noinspection PyProtectedMember
-class TestRegistrarNameSimulatedAuthenticate(TestRegistrarNameSimulatedBase):
+class TestRegistrarNameSimulatedAuthenticate(TestRegistrarNameBase):
     def test_authenticate_missing_json_key(self):
         initialize_simulation(self.success + '"bar":["baz", null, 1.0, 2]}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
@@ -156,15 +143,14 @@ class TestRegistrarNameSimulatedAuthenticate(TestRegistrarNameSimulatedBase):
         self.assertEqual(cm.exception.message, "Authorization Error or invalid username and/or password.")
 
     def test_authenticate_success(self):
-        data = self.success + """""" + \
-            """"session_token":"2352e5c5a0127d2155377664a5543f22a70be187"}"""
+        data = self.success + '"session_token":"2352e5c5a0127d2155377664a5543f22a70be187"}'
         initialize_simulation(data)
         self.session.authenticate()
         self.assertEqual(self.session._session_token, "2352e5c5a0127d2155377664a5543f22a70be187")
 
 
 # noinspection PyProtectedMember
-class TestRegistrarNameSimulatedValidateDomain(TestRegistrarNameSimulatedBase):
+class TestRegistrarNameSimulatedValidateDomain(TestRegistrarNameBase):
     def test_validate_domain_candidates_none(self):
         initialize_simulation(self.success + '"bar":["baz", null, 1.0, 2]}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
@@ -177,19 +163,70 @@ class TestRegistrarNameSimulatedValidateDomain(TestRegistrarNameSimulatedBase):
             self.session.validate_domain()
 
     def test_validate_domain_success_sub(self):
-        data = self.success + """""" + \
-            """"domains":{"example.com":{"tld":"com"},"example.info":{"tld":"info"}}}"""
+        data = self.success + '"domains":{"example.com":{"tld":"com"},"example.info":{"tld":"info"}}}'
         initialize_simulation(data)
         self.session.validate_domain()
         self.assertEqual(self.session._main_domain, "example.com")
 
     def test_validate_domain_success_main(self):
-        data = self.success + """""" + \
-            """"domains":{"example.com":{"tld":"com"},"example.info":{"tld":"info"}}}"""
+        data = self.success + '"domains":{"example.com":{"tld":"com"},"example.info":{"tld":"info"}}}'
         initialize_simulation(data)
         self.session.config['domain'] = "example.info"
         self.session.validate_domain()
         self.assertEqual(self.session._main_domain, "example.info")
+
+
+class TestRegistrarNameSimulatedGetRecords(TestRegistrarNameBase):
+    def setUp(self):
+        super(TestRegistrarNameSimulatedGetRecords, self).setUp()
+        self.session._main_domain = "example.com"
+
+    def test_get_records_none(self):
+        data = self.success + '"records":[]}'
+        initialize_simulation(data)
+        self.session.get_records()
+        self.assertEqual(self.session.recorded_ips, {})
+
+    def test_get_records_mx_only(self):
+        data = self.success + '"records":[{"record_id":"275192602","name":"sub.example.com","type":"MX",' + \
+            '"content":"127.0.0.1","ttl":"300","create_date":"2013-12-30 01:03:57","priority":"10"}]}'
+        initialize_simulation(data)
+        self.session.get_records()
+        self.assertEqual(self.session.recorded_ips, {})
+
+    def test_get_records_a_and_mx(self):
+        data = self.success + '"records":[{"record_id":"275192602","name":"sub.example.com","type":"MX",' + \
+            '"content":"127.0.0.1","ttl":"300","create_date":"2013-12-30 01:03:57","priority":"10"},' + \
+            '{"record_id":"175192602","name":"sub.example.com","type":"A","content":"192.168.0.1","ttl":"300",' + \
+            '"create_date":"2013-12-30 01:04:20","priority":"10"}]}'
+        initialize_simulation(data)
+        self.session.get_records()
+        self.assertEqual(self.session.recorded_ips, {'175192602': '192.168.0.1'})
+
+    def test_get_records_a_and_cname(self):
+        data = self.success + '"records":[{"record_id":"275192602","name":"sub.example.com","type":"A",' + \
+            '"content":"127.0.0.1","ttl":"300","create_date":"2013-12-30 01:04:20","priority":"10"},' + \
+            '{"record_id":"175192602","name":"sub.example.com","type":"CNAME","content":"test.example.com",' + \
+            '"ttl":"300","create_date":"2013-12-30 01:26:15"}]}'
+        initialize_simulation(data)
+        self.session.get_records()
+        self.assertEqual(self.session.recorded_ips, {'175192602': 'test.example.com', '275192602': '127.0.0.1'})
+
+    def test_get_records_multiple_a(self):
+        data = self.success + '"records":[{"record_id":"275192602","name":"sub.example.com","type":"A",' + \
+            '"content":"127.0.0.1","ttl":"300","create_date":"2013-12-30 01:11:10","priority":"10"},' + \
+            '{"record_id":"175192602","name":"sub.example.com","type":"A","content":"192.168.0.1","ttl":"300",' + \
+            '"create_date":"2013-12-30 01:04:20","priority":"10"}]}'
+        initialize_simulation(data)
+        self.session.get_records()
+        self.assertEqual(self.session.recorded_ips, {'175192602': '192.168.0.1', '275192602': '127.0.0.1'})
+
+    def test_get_records_single_a(self):
+        data = self.success + '"records":[{"record_id":"275192602","name":"sub.example.com","type":"A",' + \
+            '"content":"127.0.0.1","ttl":"300","create_date":"2013-12-29 22:18:25","priority":"10"}]}'
+        initialize_simulation(data)
+        self.session.get_records()
+        self.assertEqual(self.session.recorded_ips, {'275192602': '127.0.0.1'})
 
 
 if __name__ == "__main__":
