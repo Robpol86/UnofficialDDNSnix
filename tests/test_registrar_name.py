@@ -1,11 +1,14 @@
 #!/usr/bin/env python2.6
+from contextlib import closing
 from registrar_name import RegistrarName
 import StringIO
+import libs
+import logging.config
 import sys
 import unittest
 import urllib2
 
-
+# TODO: test logging. test get_records/create_record.
 def initialize_simulation(data):
     """Creates a simulated HTTP handler for all urllib2 operations, mimicking a web server."""
     s = StringIO.StringIO(data)
@@ -54,12 +57,19 @@ class TestRegistrarNameLive(unittest.TestCase):
 
 
 # noinspection PyProtectedMember
-class TestRegistrarNameSimulated(unittest.TestCase):
+class TestRegistrarNameSimulatedBase(unittest.TestCase):
+
+    success = """{"result":{"code":100,"message":"Command Successful"},"""
+
     def setUp(self):
         if not hasattr(sys.stdout, "getvalue"):
             self.fail("need to run in buffered mode")
         self.maxDiff = None
-        self.session = RegistrarName(dict(user="USER", passwd="PASSWD", domain="sub.example.com"))
+        config = libs.get_config({'--verbose': True, '--user': "USER", '--passwd': "PASSWD",
+                                  '--domain': "sub.example.com"})
+        with closing(libs.generate_logging_config(config)) as f:
+            logging.config.fileConfig(f)  # Setup logging.
+        self.session = RegistrarName(config)
         self.session._url_base = "http://127.0.0.1"
         self.session._url_get_current_ip = self.session._url_base + "/hello"
         self.session._url_authenticate = self.session._url_base + "/login"
@@ -69,6 +79,9 @@ class TestRegistrarNameSimulated(unittest.TestCase):
         self.session._url_create_record_prefix = self.session._url_base + "/dns/create"
         self.session._url_logout = self.session._url_base + "/logout"
 
+
+# noinspection PyProtectedMember
+class TestRegistrarNameSimulatedRequestJSON(TestRegistrarNameSimulatedBase):
     def test_http_not_json(self):
         initialize_simulation("<body>This isn't JSON</body>")
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
@@ -87,45 +100,50 @@ class TestRegistrarNameSimulated(unittest.TestCase):
             self.session._request_json(self.session._url_base)
         self.assertEqual(cm.exception.message, "API returned an error.")
 
+
+class TestRegistrarNameSimulatedGetCurrentIP(TestRegistrarNameSimulatedBase):
     def test_get_current_ip_missing_json_key(self):
-        initialize_simulation('{"result":{"code":100,"message":"Command Successful"},"bar":["baz", null, 1.0, 2]}')
+        initialize_simulation(self.success + '"bar":["baz", null, 1.0, 2]}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
             self.session.get_current_ip()
         self.assertEqual(cm.exception.message, "'client_ip' not in JSON.")
 
     def test_get_current_ip_missing_json_value(self):
-        initialize_simulation('{"result":{"code":100,"message":"Command Successful"},"bar":["baz", null, 1.0, 2], "client_ip":""}')
+        initialize_simulation(self.success + '"bar":["baz", null, 1.0, 2], "client_ip":""}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
             self.session.get_current_ip()
         self.assertEqual(cm.exception.message, "'client_ip' is not an IP address.")
 
     def test_get_current_ip_invalid_json_value(self):
-        initialize_simulation('{"result":{"code":100,"message":"Command Successful"},"bar":["baz", null, 1.0, 2], "client_ip":"127..0.1"}')
+        initialize_simulation(self.success + '"bar":["baz", null, 1.0, 2], "client_ip":"127..0.1"}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
             self.session.get_current_ip()
         self.assertEqual(cm.exception.message, "'client_ip' is not an IP address.")
 
     def test_get_current_ip_success(self):
-        data = """{"result":{"code":100,"message":"Command Successful"},"service":"Name.com API Test Server",""" + \
+        data = self.success + """"service":"Name.com API Test Server",""" + \
             """"server_date":"2013-12-28 04:46:38","version":"2.0","language":"en","client_ip":"127.0.0.1"}"""
         initialize_simulation(data)
         self.session.get_current_ip()
         self.assertEqual(self.session.current_ip, "127.0.0.1")
 
+
+# noinspection PyProtectedMember
+class TestRegistrarNameSimulatedAuthenticate(TestRegistrarNameSimulatedBase):
     def test_authenticate_missing_json_key(self):
-        initialize_simulation('{"result":{"code":100,"message":"Command Successful"},"bar":["baz", null, 1.0, 2]}')
+        initialize_simulation(self.success + '"bar":["baz", null, 1.0, 2]}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
             self.session.authenticate()
         self.assertEqual(cm.exception.message, "'session_token' not in JSON.")
 
     def test_authenticate_missing_json_value(self):
-        initialize_simulation('{"result":{"code":100,"message":"Command Successful"},"bar":["baz", null, 1.0, 2], "session_token":""}')
+        initialize_simulation(self.success + '"bar":["baz", null, 1.0, 2], "session_token":""}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
             self.session.authenticate()
         self.assertEqual(cm.exception.message, "'session_token' is invalid.")
 
     def test_authenticate_invalid_json_value(self):
-        initialize_simulation('{"result":{"code":100,"message":"Command Successful"},"bar":["baz", null, 1.0, 2], "session_token":"127..0.1"}')
+        initialize_simulation(self.success + '"bar":["baz", null, 1.0, 2], "session_token":"127..0.1"}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
             self.session.authenticate()
         self.assertEqual(cm.exception.message, "'session_token' is invalid.")
@@ -138,32 +156,35 @@ class TestRegistrarNameSimulated(unittest.TestCase):
         self.assertEqual(cm.exception.message, "Authorization Error or invalid username and/or password.")
 
     def test_authenticate_success(self):
-        data = """{"result":{"code":100,"message":"Command Successful"},""" + \
+        data = self.success + """""" + \
             """"session_token":"2352e5c5a0127d2155377664a5543f22a70be187"}"""
         initialize_simulation(data)
         self.session.authenticate()
         self.assertEqual(self.session._session_token, "2352e5c5a0127d2155377664a5543f22a70be187")
 
+
+# noinspection PyProtectedMember
+class TestRegistrarNameSimulatedValidateDomain(TestRegistrarNameSimulatedBase):
     def test_validate_domain_candidates_none(self):
-        initialize_simulation('{"result":{"code":100,"message":"Command Successful"},"bar":["baz", null, 1.0, 2]}')
+        initialize_simulation(self.success + '"bar":["baz", null, 1.0, 2]}')
         with self.assertRaises(RegistrarName.RegistrarException) as cm:
             self.session.validate_domain()
         self.assertEqual(cm.exception.message, "Domain not registered to this registrar's account.")
 
     def test_validate_domain_candidates_error(self):
-        initialize_simulation('{"result":{"code":100,"message":"Command Successful"},"domains":{"example.com":0,"com":0}}')
+        initialize_simulation(self.success + '"domains":{"example.com":0,"com":0}}')
         with self.assertRaises(ValueError):
             self.session.validate_domain()
 
     def test_validate_domain_success_sub(self):
-        data = """{"result":{"code":100,"message":"Command Successful"},""" + \
+        data = self.success + """""" + \
             """"domains":{"example.com":{"tld":"com"},"example.info":{"tld":"info"}}}"""
         initialize_simulation(data)
         self.session.validate_domain()
         self.assertEqual(self.session._main_domain, "example.com")
 
     def test_validate_domain_success_main(self):
-        data = """{"result":{"code":100,"message":"Command Successful"},""" + \
+        data = self.success + """""" + \
             """"domains":{"example.com":{"tld":"com"},"example.info":{"tld":"info"}}}"""
         initialize_simulation(data)
         self.session.config['domain'] = "example.info"
