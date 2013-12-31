@@ -29,7 +29,6 @@ Options:
 
 from __future__ import division
 from __future__ import print_function
-from contextlib import closing
 from docopt import docopt
 from pidfile import PidFile
 import atexit
@@ -58,6 +57,7 @@ def decider(session):
     for (record, ip) in [i for i in session.recorded_ips.iteritems() if i[1] != session.current_ip]:
         logger.info("Removing old/incorrect record ID %s with value %s." % (record, ip))
         session.delete_record(record)
+
 
 def main(config):
     logger = logging.getLogger('%s.main' % __name__)
@@ -96,7 +96,7 @@ if __name__ == "__main__":
 
     # Get CLI args/options and parse config file.
     try:
-        config = libs.get_config(docopt(__doc__, version=__version__))
+        main_config = libs.get_config(docopt(__doc__, version=__version__))
     except libs.ConfigError as e:
         print("ERROR: %s" % e, file=sys.stderr)
         sys.exit(1)
@@ -104,19 +104,19 @@ if __name__ == "__main__":
     # Initialize logging.
     umask = 0o027
     os.umask(umask)
-    with closing(libs.generate_logging_config(config)) as f:
+    with libs.LoggingSetup(main_config['verbose'], main_config['log'], main_config['quiet']) as cm:
         try:
-            logging.config.fileConfig(f)  # Setup logging.
+            logging.config.fileConfig(cm.config)  # Setup logging.
         except IOError:
-            print("ERROR: Unable to write to file %s" % config['log'], file=sys.stderr)
+            print("ERROR: Unable to write to file %s" % main_config['log'], file=sys.stderr)
             sys.exit(1)
     sys.excepthook = lambda t, v, b: logging.critical("Uncaught exception!", exc_info=(t, v, b))  # Log exceptions.
     atexit.register(lambda: logging.info("%s pid %d shutting down." % (__program__, os.getpid())))  # Log when exiting.
     logging.info("Starting %s version %s" % (__program__, __version__))
 
     # Initialize context manager. Daemonize, use pid file, or both, or none!
-    cm = PidFile(config['pid']) if config['pid'] else None
-    if config['daemon']:
+    cm = PidFile(main_config['pid']) if main_config['pid'] else None
+    if main_config['daemon']:
         cm = daemon.DaemonContext(files_preserve=[h.stream for h in logging.getLogger().handlers],
                                   umask=umask, pidfile=cm)
 
@@ -124,18 +124,18 @@ if __name__ == "__main__":
     if cm:
         try:
             with cm:
-                if config['pid']:
+                if main_config['pid']:
                     logging.debug("Process has daemonized with pid %d successfully." % os.getpid())
-                main(config)
+                main(main_config)
         except SystemExit as e:
             if "Already running" in str(e):
                 logging.error("%s is already running!" % __program__)
                 sys.exit(1)
             raise
         except IOError as e:
-            if "Permission denied" == e.strerror and e.filename == config['pid']:
-                logging.error("Failed to write to pid file %s, %s" % (config['pid'], e.strerror))
+            if "Permission denied" == e.strerror and e.filename == main_config['pid']:
+                logging.error("Failed to write to pid file %s, %s" % (main_config['pid'], e.strerror))
                 sys.exit(1)
             raise
     else:
-        main(config)
+        main(main_config)

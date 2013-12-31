@@ -1,5 +1,4 @@
 #!/usr/bin/env python2.6
-from contextlib import closing
 import libs
 import logging
 import logging.config
@@ -43,10 +42,10 @@ class TestLogging(unittest.TestCase):
 
     def test_default(self):
         config = libs.get_config(dict(), test=True)
-        with closing(libs.generate_logging_config(config)) as f:
-            logging.config.fileConfig(f)  # Setup logging.
+        with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
+            logging.config.fileConfig(f.config)  # Setup logging.
         self.assertEqual(len(logging.getLogger().handlers), 1)
-        self.assertIsInstance(logging.getLogger().handlers[0], libs.ConsoleHandler)
+        self.assertIsInstance(logging.getLogger().handlers[0], libs.LoggingSetup.ConsoleHandler)
 
         log_samples()
         stdout_actual = sys.stdout.getvalue()
@@ -58,10 +57,10 @@ class TestLogging(unittest.TestCase):
 
     def test_quiet(self):
         config = libs.get_config({'--quiet': True}, test=True)
-        with closing(libs.generate_logging_config(config)) as f:
-            logging.config.fileConfig(f)  # Setup logging.
+        with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
+            logging.config.fileConfig(f.config)  # Setup logging.
         self.assertEqual(len(logging.getLogger().handlers), 1)
-        self.assertIsInstance(logging.getLogger().handlers[0], libs.NullHandler)
+        self.assertIsInstance(logging.getLogger().handlers[0], libs.LoggingSetup.NullHandler)
 
         log_samples()
         stdout_actual = sys.stdout.getvalue()
@@ -73,11 +72,11 @@ class TestLogging(unittest.TestCase):
 
     def test_logfile(self):
         config = libs.get_config({'--log': self.log_file.name}, test=True)
-        with closing(libs.generate_logging_config(config)) as f:
-            logging.config.fileConfig(f)  # Setup logging.
+        with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
+            logging.config.fileConfig(f.config)  # Setup logging.
         self.assertEqual(len(logging.getLogger().handlers), 2)
-        self.assertIsInstance(logging.getLogger().handlers[0], libs.ConsoleHandler)
-        self.assertIsInstance(logging.getLogger().handlers[1], logging.handlers.TimedRotatingFileHandler)
+        self.assertIsInstance(logging.getLogger().handlers[0], libs.LoggingSetup.ConsoleHandler)
+        self.assertIsInstance(logging.getLogger().handlers[1], libs.LoggingSetup.TimedRotatingFileHandler)
 
         timestamp = log_samples()
         stdout_actual = sys.stdout.getvalue()
@@ -96,10 +95,10 @@ class TestLogging(unittest.TestCase):
 
     def test_verbose(self):
         config = libs.get_config({'--verbose': True}, test=True)
-        with closing(libs.generate_logging_config(config)) as f:
-            logging.config.fileConfig(f)  # Setup logging.
+        with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
+            logging.config.fileConfig(f.config)  # Setup logging.
         self.assertEqual(len(logging.getLogger().handlers), 1)
-        self.assertIsInstance(logging.getLogger().handlers[0], libs.ConsoleHandler)
+        self.assertIsInstance(logging.getLogger().handlers[0], libs.LoggingSetup.ConsoleHandler)
 
         log_samples()
         stdout_actual = sys.stdout.getvalue()
@@ -111,10 +110,10 @@ class TestLogging(unittest.TestCase):
 
     def test_quiet_logfile(self):
         config = libs.get_config({'--quiet': True, '--log': self.log_file.name}, test=True)
-        with closing(libs.generate_logging_config(config)) as f:
-            logging.config.fileConfig(f)  # Setup logging.
+        with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
+            logging.config.fileConfig(f.config)  # Setup logging.
         self.assertEqual(len(logging.getLogger().handlers), 1)
-        self.assertIsInstance(logging.getLogger().handlers[0], logging.handlers.TimedRotatingFileHandler)
+        self.assertIsInstance(logging.getLogger().handlers[0], libs.LoggingSetup.TimedRotatingFileHandler)
 
         timestamp = log_samples()
         stdout_actual = sys.stdout.getvalue()
@@ -133,10 +132,10 @@ class TestLogging(unittest.TestCase):
 
     def test_quiet_verbose(self):
         config = libs.get_config({'--quiet': True, '--verbose': True}, test=True)
-        with closing(libs.generate_logging_config(config)) as f:
-            logging.config.fileConfig(f)  # Setup logging.
+        with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
+            logging.config.fileConfig(f.config)  # Setup logging.
         self.assertEqual(len(logging.getLogger().handlers), 1)
-        self.assertIsInstance(logging.getLogger().handlers[0], libs.NullHandler)
+        self.assertIsInstance(logging.getLogger().handlers[0], libs.LoggingSetup.NullHandler)
 
         log_samples()
         stdout_actual = sys.stdout.getvalue()
@@ -148,11 +147,11 @@ class TestLogging(unittest.TestCase):
 
     def test_logfile_verbose(self):
         config = libs.get_config({'--log': self.log_file.name, '--verbose': True}, test=True)
-        with closing(libs.generate_logging_config(config)) as f:
-            logging.config.fileConfig(f)  # Setup logging.
+        with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
+            logging.config.fileConfig(f.config)  # Setup logging.
         self.assertEqual(len(logging.getLogger().handlers), 2)
-        self.assertIsInstance(logging.getLogger().handlers[0], libs.ConsoleHandler)
-        self.assertIsInstance(logging.getLogger().handlers[1], logging.handlers.TimedRotatingFileHandler)
+        self.assertIsInstance(logging.getLogger().handlers[0], libs.LoggingSetup.ConsoleHandler)
+        self.assertIsInstance(logging.getLogger().handlers[1], libs.LoggingSetup.TimedRotatingFileHandler)
 
         timestamp = log_samples()
         stdout_actual = sys.stdout.getvalue()
@@ -172,10 +171,10 @@ class TestLogging(unittest.TestCase):
 
     def test_quiet_logfile_verbose(self):
         config = libs.get_config({'--quiet': True, '--log': self.log_file.name, '--verbose': True}, test=True)
-        with closing(libs.generate_logging_config(config)) as f:
-            logging.config.fileConfig(f)  # Setup logging.
+        with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
+            logging.config.fileConfig(f.config)  # Setup logging.
         self.assertEqual(len(logging.getLogger().handlers), 1)
-        self.assertIsInstance(logging.getLogger().handlers[0], logging.handlers.TimedRotatingFileHandler)
+        self.assertIsInstance(logging.getLogger().handlers[0], libs.LoggingSetup.TimedRotatingFileHandler)
 
         timestamp = log_samples()
         stdout_actual = sys.stdout.getvalue()
@@ -195,11 +194,11 @@ class TestLogging(unittest.TestCase):
 
     def test_logfile_multiple_loggers(self):
         config = libs.get_config({'--log': self.log_file.name}, test=True)
-        with closing(libs.generate_logging_config(config)) as f:
-            logging.config.fileConfig(f)  # Setup logging.
+        with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
+            logging.config.fileConfig(f.config)  # Setup logging.
         self.assertEqual(len(logging.getLogger().handlers), 2)
-        self.assertIsInstance(logging.getLogger().handlers[0], libs.ConsoleHandler)
-        self.assertIsInstance(logging.getLogger().handlers[1], logging.handlers.TimedRotatingFileHandler)
+        self.assertIsInstance(logging.getLogger().handlers[0], libs.LoggingSetup.ConsoleHandler)
+        self.assertIsInstance(logging.getLogger().handlers[1], libs.LoggingSetup.TimedRotatingFileHandler)
 
         timestamp = log_samples()
         time.sleep(1)
