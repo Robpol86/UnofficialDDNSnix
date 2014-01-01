@@ -23,7 +23,7 @@ class RegistrarBase(object):
     def __init__(self, config):
         self.config = config
         self.current_ip = None
-        self.recorded_ips = dict()  # {record_id: "ip_address", ...}
+        self.recorded_ips = list()  # [RegistrarBase.Record(), ...]
         self._main_domain = None
         self._session_token = None
 
@@ -50,6 +50,21 @@ class RegistrarBase(object):
             
         def parse(self):
             self.json = json.loads(self.response)
+
+    class Record(object):
+        """Bare-bones class to hold a record and some attributes."""
+        def __init__(self, record_id, record_type, name, content):
+            self.id = record_id
+            self.type = record_type
+            self.name = name
+            self.content = content
+
+        def __eq__(self, other):
+            return (type(other) is type(self) and self.__dict__ == other.__dict__) or NotImplemented
+
+        def __ne__(self, other):
+            return (self.__eq__(other) == NotImplemented) or NotImplemented
+
 
     class RegistrarException(Exception):
         """Exception to be raised inside RegistrarBase and its derivatives when a handled error occurs."""
@@ -142,10 +157,10 @@ class RegistrarBase(object):
         data = self._request_json(self._url_get_records_prefix + self._main_domain)
         logger.debug("Response: %s" % data.response)
         logger.debug("JSON: %s" % data.json)
-        candidates = dict([(d['record_id'], d['content']) for d in data.json.get('records', {}) if
-                           d['name'] == self.config['domain'] and d['type'] in ('A', 'CNAME')])
-        if candidates:
-            self.recorded_ips = candidates
+        for r in data.json.get('records', {}):
+            if r['name'] != self.config['domain'] or r['type'] not in ('A', 'CNAME'):
+                continue
+            self.recorded_ips.append(self.Record(r['record_id'], r['type'], r['name'], r['content']))
         logger.debug("Method get_records end.")
 
     def create_record(self):

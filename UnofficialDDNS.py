@@ -48,13 +48,13 @@ __version__ = '0.0.1'
 
 def decider(session):
     logger = logging.getLogger('%s.decider' % __name__)
-    if session.current_ip not in session.recorded_ips.values():
+    if session.current_ip not in [i.content for i in session.recorded_ips]:
         logger.info("Creating A record.")
         session.create_record()
-    for (record, ip) in [i for i in session.recorded_ips.iteritems() if i[1] == session.current_ip][1:]:
+    for (record, ip) in [(i.id, i.content) for i in session.recorded_ips if i.content == session.current_ip][1:]:
         logger.info("Removing duplicate record ID %s with value %s." % (record, ip))
         session.delete_record(record)
-    for (record, ip) in [i for i in session.recorded_ips.iteritems() if i[1] != session.current_ip]:
+    for (record, ip) in [(i.id, i.content) for i in session.recorded_ips if i.content != session.current_ip]:
         logger.info("Removing old/incorrect record ID %s with value %s." % (record, ip))
         session.delete_record(record)
 
@@ -73,8 +73,13 @@ def main(config):
         try:
             with Registrar(config) as session:
                 logger.info("Current public IP is %s." % session.current_ip)
-                if len(session.recorded_ips) != 1 or session.recorded_ips.values()[0] != session.current_ip:
-                    logger.info("Too many records or recorded IP does not match public IP. Updating domain.")
+
+                if len(session.recorded_ips) != 1:
+                    logger.info("Too many records. Updating domain.")
+                    decider(session)
+                    logger.info("Done making changes.")
+                elif session.recorded_ips[0].type != 'A' or session.recorded_ips[0].content != session.current_ip:
+                    logger.info("Recorded IP does not match public IP. Updating domain.")
                     decider(session)
                     logger.info("Done making changes.")
                 else:

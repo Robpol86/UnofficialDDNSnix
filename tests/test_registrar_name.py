@@ -1,9 +1,16 @@
 #!/usr/bin/env python2.6
-from registrar_name import RegistrarName
 import StringIO
+import logging
+import logging.config
 import sys
+import tempfile
+import textwrap
 import unittest
 import urllib2
+import time
+import libs
+from UnofficialDDNS import decider
+from registrar_name import RegistrarName
 
 # TODO: test create_record.
 def initialize_simulation(data):
@@ -28,6 +35,7 @@ class TestRegistrarNameBase(unittest.TestCase):
     def setUp(self):
         if not hasattr(sys.stdout, "getvalue"):
             self.fail("need to run in buffered mode")
+        self.log_file = tempfile.NamedTemporaryFile()
         self.maxDiff = None
         self.session = RegistrarName(dict(user="USER", passwd="PASSWD", domain="sub.example.com"))
         self.session._url_base = "http://127.0.0.1"
@@ -38,6 +46,11 @@ class TestRegistrarNameBase(unittest.TestCase):
         self.session._url_delete_record_prefix = self.session._url_base + "/dns/delete"
         self.session._url_create_record_prefix = self.session._url_base + "/dns/create"
         self.session._url_logout = self.session._url_base + "/logout"
+        with libs.LoggingSetup(True, self.log_file.name, False) as cm:
+            logging.config.fileConfig(cm.config)  # Setup logging.
+
+    def tearDown(self):
+        self.log_file.close()
 
 
 # noinspection PyProtectedMember
@@ -176,38 +189,71 @@ class TestRegistrarNameSimulatedValidateDomain(TestRegistrarNameBase):
         self.assertEqual(self.session._main_domain, "example.info")
 
 
-class TestRegistrarNameSimulatedGetRecords(TestRegistrarNameBase):
+class TestRegistrarNameSimulatedGetRecordsDecider(TestRegistrarNameBase):
     def setUp(self):
-        super(TestRegistrarNameSimulatedGetRecords, self).setUp()
+        super(TestRegistrarNameSimulatedGetRecordsDecider, self).setUp()
         self.session._main_domain = "example.com"
+        self.session.current_ip = "127.0.0.1"
+        self.session.create_record = lambda: logging.debug("New Record")
+        self.session.delete_record = lambda record: logging.debug("Delete Record %s" % record)
 
-    def test_get_records_none(self):
-        data = self.success + '"records":[]}'
-        initialize_simulation(data)
+    def test_no_records(self):
+        response = '{"result":{"code":100,"message":"Command Successful"},"records":[]}'
+        json = "{u'records': [], u'result': {u'message': u'Command Successful', u'code': 100}}"
+        initialize_simulation(response)
+        timestamp = time.strftime("%Y-%m-%dT%H:%M:%S")
         self.session.get_records()
-        self.assertEqual(self.session.recorded_ips, {})
+        self.assertEqual(self.session.recorded_ips, [])
+        decider(self.session)
 
+        stdout_actual = sys.stdout.getvalue()
+        stderr_actual = sys.stderr.getvalue()
+        stdout_expected = textwrap.dedent("""\
+            Method get_records start.
+            Response: {response}
+            JSON: {json}
+            Method get_records end.
+            Creating A record.
+            New Record
+            """.format(response=response, json=json))
+        stderr_expected = ''
+        self.assertMultiLineEqual(stdout_expected, stdout_actual)
+        self.assertMultiLineEqual(stderr_expected, stderr_actual)
+
+        log_actual = self.log_file.read(1024)
+        log_expected = textwrap.dedent("""\
+            {ts} DEBUG    registrar_base.get_records     Method get_records start.
+            {ts} DEBUG    registrar_base.get_records     Response: {response}
+            {ts} DEBUG    registrar_base.get_records     JSON: {json}
+            {ts} DEBUG    registrar_base.get_records     Method get_records end.
+            {ts} INFO     UnofficialDDNS.decider         Creating A record.
+            {ts} DEBUG    root                           New Record
+            """.format(response=response, json=json, ts=timestamp))
+        self.assertMultiLineEqual(log_expected, log_actual)
+"""
     def test_get_records_mx_only(self):
         data = self.success + '"records":[{"record_id":"275192602","name":"sub.example.com","type":"MX",' + \
             '"content":"127.0.0.1","ttl":"300","create_date":"2013-12-30 01:03:57","priority":"10"}]}'
         initialize_simulation(data)
         self.session.get_records()
-        self.assertEqual(self.session.recorded_ips, {})
+        self.assertEqual(self.session.recorded_ips, [])
 
     def test_get_records_a_and_mx(self):
         data = self.success + '"records":[{"record_id":"275192602","name":"sub.example.com","type":"MX",' + \
             '"content":"127.0.0.1","ttl":"300","create_date":"2013-12-30 01:03:57","priority":"10"},' + \
             '{"record_id":"175192602","name":"sub.example.com","type":"A","content":"192.168.0.1","ttl":"300",' + \
             '"create_date":"2013-12-30 01:04:20","priority":"10"}]}'
+        expected = [self.session.Record('175192602', 'A', 'sub.example.com', '192.168.0.1'), ]
         initialize_simulation(data)
         self.session.get_records()
-        self.assertEqual(self.session.recorded_ips, {'175192602': '192.168.0.1'})
+        self.assertEqual(self.session.recorded_ips, expected)
 
     def test_get_records_a_and_cname(self):
         data = self.success + '"records":[{"record_id":"275192602","name":"sub.example.com","type":"A",' + \
             '"content":"127.0.0.1","ttl":"300","create_date":"2013-12-30 01:04:20","priority":"10"},' + \
             '{"record_id":"175192602","name":"sub.example.com","type":"CNAME","content":"test.example.com",' + \
             '"ttl":"300","create_date":"2013-12-30 01:26:15"}]}'
+        expected = [self.session.Record('175192602', 'A', 'test.example.com', '192.168.0.1'), ]
         initialize_simulation(data)
         self.session.get_records()
         self.assertEqual(self.session.recorded_ips, {'175192602': 'test.example.com', '275192602': '127.0.0.1'})
@@ -227,7 +273,7 @@ class TestRegistrarNameSimulatedGetRecords(TestRegistrarNameBase):
         initialize_simulation(data)
         self.session.get_records()
         self.assertEqual(self.session.recorded_ips, {'275192602': '127.0.0.1'})
-
+"""
 
 if __name__ == "__main__":
     unittest.main(buffer=True)
