@@ -11,6 +11,7 @@ import logging
 import logging.handlers
 import os
 import re
+import string
 import sys
 
 
@@ -242,7 +243,11 @@ def get_config(cli_args, test=False):
                 for line in (l.strip() for l in f):
                     split = re.split(r"\s*", line.lower(), maxsplit=2)
                     if len(split) != 2 or split[0] not in config:
-                        raise ConfigError("Invalid line in config file: %s" % line)
+                        if set(line).issubset(set(string.printable)):
+                            message = "Invalid line in config file: %s" % line
+                        else:
+                            message = "Invalid line in config file."
+                        raise ConfigError(message)
                     config_file[split[0]] = split[1]
         except IOError:
             raise ConfigError("Unable to read file %s" % cli_args['--config'])
