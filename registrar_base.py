@@ -51,6 +51,12 @@ class RegistrarBase(object):
         def parse(self):
             self.json = json.loads(self.response)
 
+        def __eq__(self, other):
+            return (type(other) is type(self) and self.__dict__ == other.__dict__) or NotImplemented
+
+        def __ne__(self, other):
+            return (self.__eq__(other) == NotImplemented) or NotImplemented
+
     class Record(object):
         """Bare-bones class to hold a record and some attributes."""
         def __init__(self, record_id, record_type, name, content):
@@ -64,7 +70,6 @@ class RegistrarBase(object):
 
         def __ne__(self, other):
             return (self.__eq__(other) == NotImplemented) or NotImplemented
-
 
     class RegistrarException(Exception):
         """Exception to be raised inside RegistrarBase and its derivatives when a handled error occurs."""

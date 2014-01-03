@@ -34,6 +34,8 @@ class TestLogging(unittest.TestCase):
     def setUp(self):
         if not hasattr(sys.stdout, "getvalue"):
             self.fail("need to run in buffered mode")
+        if not hasattr(sys.stderr, "getvalue"):
+            self.fail("need to run in buffered mode for stderr too!")
         self.log_file = tempfile.NamedTemporaryFile()
         self.maxDiff = None
 
