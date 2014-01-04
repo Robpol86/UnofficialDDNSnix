@@ -16,7 +16,7 @@ def log_file(request):
 
 
 # noinspection PyProtectedMember
-@pytest.fixture()
+@pytest.fixture
 def session(request):
     s = registrar_name.RegistrarName(dict(user="USER", passwd="PASSWD", domain="sub.example.com"))
     s._url_base = "http://127.0.0.1"
@@ -33,4 +33,7 @@ def session(request):
         s.current_ip = "127.0.0.1"
         s.create_record = lambda: logging.debug("New Record")
         s.delete_record = lambda record: logging.debug("Delete Record %s" % record)
+    elif 'test_create_record_delete_record' in request.module.__name__:
+        s._main_domain = "example.com"
+        s.current_ip = "127.0.0.1"
     return s
