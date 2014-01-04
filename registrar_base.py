@@ -184,6 +184,9 @@ class RegistrarBase(object):
         logger.debug("Method delete_record start.")
         post_data = json.dumps(dict(record_id=record_id))
         logger.debug("Sending POST data: %s" % post_data)
+        data = self._request_json(self._url_delete_record_prefix + self._main_domain, post_data)
+        logger.debug("Response: %s" % data.response)
+        logger.debug("JSON: %s" % data.json)
         logger.debug("Method delete_record end.")
 
     def logout(self):
