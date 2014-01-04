@@ -48,14 +48,16 @@ __version__ = '0.0.1'
 
 def decider(session):
     logger = logging.getLogger('%s.decider' % __name__)
-    if session.current_ip not in [i.content for i in session.recorded_ips]:
+    c_ip = session.current_ip
+    r_ip = session.recorded_ips
+    if c_ip not in [i.content for i in r_ip if i.type == 'A']:
         logger.info("Creating A record.")
         session.create_record()
-    for (record, ip) in [(i.id, i.content) for i in session.recorded_ips if i.content == session.current_ip][1:]:
-        logger.info("Removing duplicate record ID %s with value %s." % (record, ip))
-        session.delete_record(record)
-    for (record, ip) in [(i.id, i.content) for i in session.recorded_ips if i.content != session.current_ip]:
+    for (record, ip) in [(i.id, i.content) for i in r_ip if i.content != c_ip or i.type != 'A']:
         logger.info("Removing old/incorrect record ID %s with value %s." % (record, ip))
+        session.delete_record(record)
+    for (record, ip) in [(i.id, i.content) for i in r_ip if (i.content, i.type) == (c_ip, 'A')][1:]:
+        logger.info("Removing duplicate record ID %s with value %s." % (record, ip))
         session.delete_record(record)
 
 
