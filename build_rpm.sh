@@ -19,11 +19,13 @@ URL=$(./$NAME.py --help |head -2 |tail -1)
 SOURCES="$HOME/rpmbuild/SOURCES"
 TARFILE=$NAME-$VERSION.tar.gz
 
-# Replace placeholders in spec file.
+# Replace placeholders.
 sed -i "s/{{NAME}}/$NAME/" uddns.spec
 sed -i "s/{{VERSION}}/$VERSION/" uddns.spec
 sed -i "s/{{SUMMARY}}/$SUMMARY/" uddns.spec
 sed -i "s|{{URL}}|$URL|" uddns.spec
+sed -i "s/{{SUMMARY}}/$SUMMARY/" UnofficialDDNS.sysvinit.sh
+sed -i "s|{{URL}}|$URL|" UnofficialDDNS.sysvinit.sh
 
 # Create tarball.
 [ ! -e "$SOURCES/$NAME-$VERSION" ] && ln -s "$(pwd)" "$SOURCES/$NAME-$VERSION"
