@@ -1,9 +1,11 @@
 #!/usr/bin/env python2.6
+from UnofficialDDNS import __doc__ as uddns_doc
+from UnofficialDDNS import __version__ as uddns_ver
+from docopt import docopt
 import libs
 import logging
 import logging.config
 import logging.handlers
-import sys
 import time
 
 
@@ -29,7 +31,7 @@ def log_samples_named():
 
 
 def test_default(capsys):
-    config = libs.get_config(dict(), test=True)
+    config = libs.get_config(docopt(uddns_doc, version=uddns_ver, argv=['-n', 'x', '-u', 'x', '-p', 'x']))
     with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
         logging.config.fileConfig(f.config)  # Setup logging.
     assert 1 == len(logging.getLogger().handlers)
@@ -44,7 +46,7 @@ def test_default(capsys):
 
 
 def test_quiet(capsys):
-    config = libs.get_config({'--quiet': True}, test=True)
+    config = libs.get_config(docopt(uddns_doc, version=uddns_ver, argv=['-n', 'x', '-u', 'x', '-p', 'x', '--quiet']))
     with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
         logging.config.fileConfig(f.config)  # Setup logging.
     assert len(logging.getLogger().handlers) == 1
@@ -59,7 +61,7 @@ def test_quiet(capsys):
 
 
 def test_logfile(capsys, log_file):
-    config = libs.get_config({'--log': log_file.name}, test=True)
+    config = libs.get_config(docopt(uddns_doc, version=uddns_ver, argv=['-n', 'x', '-u', 'x', '-p', 'x', '--log', log_file.name]))
     with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
         logging.config.fileConfig(f.config)  # Setup logging.
     assert 2 == len(logging.getLogger().handlers)
@@ -82,7 +84,7 @@ def test_logfile(capsys, log_file):
 
 
 def test_verbose(capsys):
-    config = libs.get_config({'--verbose': True}, test=True)
+    config = libs.get_config(docopt(uddns_doc, version=uddns_ver, argv=['-n', 'x', '-u', 'x', '-p', 'x', '--verbose']))
     with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
         logging.config.fileConfig(f.config)  # Setup logging.
     assert len(logging.getLogger().handlers) == 1
@@ -97,7 +99,7 @@ def test_verbose(capsys):
 
 
 def test_quiet_logfile(capsys, log_file):
-    config = libs.get_config({'--quiet': True, '--log': log_file.name}, test=True)
+    config = libs.get_config(docopt(uddns_doc, version=uddns_ver, argv=['-n', 'x', '-u', 'x', '-p', 'x', '--quiet', '--log', log_file.name]))
     with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
         logging.config.fileConfig(f.config)  # Setup logging.
     assert len(logging.getLogger().handlers) == 1
@@ -119,7 +121,7 @@ def test_quiet_logfile(capsys, log_file):
 
 
 def test_quiet_verbose(capsys):
-    config = libs.get_config({'--quiet': True, '--verbose': True}, test=True)
+    config = libs.get_config(docopt(uddns_doc, version=uddns_ver, argv=['-n', 'x', '-u', 'x', '-p', 'x', '--quiet', '--verbose']))
     with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
         logging.config.fileConfig(f.config)  # Setup logging.
     assert len(logging.getLogger().handlers) == 1
@@ -134,7 +136,7 @@ def test_quiet_verbose(capsys):
 
 
 def test_logfile_verbose(capsys, log_file):
-    config = libs.get_config({'--log': log_file.name, '--verbose': True}, test=True)
+    config = libs.get_config(docopt(uddns_doc, version=uddns_ver, argv=['-n', 'x', '-u', 'x', '-p', 'x', '--verbose', '--log', log_file.name]))
     with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
         logging.config.fileConfig(f.config)  # Setup logging.
     assert 2 == len(logging.getLogger().handlers)
@@ -158,7 +160,7 @@ def test_logfile_verbose(capsys, log_file):
 
 
 def test_quiet_logfile_verbose(capsys, log_file):
-    config = libs.get_config({'--quiet': True, '--log': log_file.name, '--verbose': True}, test=True)
+    config = libs.get_config(docopt(uddns_doc, version=uddns_ver, argv=['-n', 'x', '-u', 'x', '-p', 'x', '--quiet', '--verbose', '--log', log_file.name]))
     with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
         logging.config.fileConfig(f.config)  # Setup logging.
     assert len(logging.getLogger().handlers) == 1
@@ -181,7 +183,7 @@ def test_quiet_logfile_verbose(capsys, log_file):
 
 
 def test_logfile_multiple_loggers(capsys, log_file):
-    config = libs.get_config({'--log': log_file.name}, test=True)
+    config = libs.get_config(docopt(uddns_doc, version=uddns_ver, argv=['-n', 'x', '-u', 'x', '-p', 'x', '--log', log_file.name]))
     with libs.LoggingSetup(config['verbose'], config['log'], config['quiet']) as f:
         logging.config.fileConfig(f.config)  # Setup logging.
     assert 2 == len(logging.getLogger().handlers)

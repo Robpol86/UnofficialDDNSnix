@@ -104,7 +104,7 @@ if __name__ == "__main__":
     # Get CLI args/options and parse config file.
     try:
         main_config = libs.get_config(docopt(__doc__, version=__version__))
-    except libs.ConfigError as e:
+    except libs.MultipleConfigSources.ConfigError as e:
         print("ERROR: %s" % e, file=sys.stderr)
         sys.exit(1)
 

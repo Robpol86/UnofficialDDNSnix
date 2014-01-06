@@ -11,8 +11,11 @@ import logging
 import logging.handlers
 import os
 import re
-import string
 import sys
+import yaml
+import yaml.parser
+import yaml.reader
+import yaml.scanner
 
 
 # noinspection PyCallingNonCallable
@@ -77,11 +80,6 @@ class Color(str):
     def title(self, *args, **kwargs):
         """Don't use: Can't figure out how to implement this properly."""
         raise NotImplementedError
-
-
-class ConfigError(Exception):
-    """Raised when insufficient/invalid config file or CLI options are given."""
-    pass
 
 
 class LoggingSetup(object):
@@ -209,73 +207,80 @@ class LoggingSetup(object):
         self.config.seek(0)
 
 
+class MultipleConfigSources(object):
+    """Handles configuration options from command line and YAML config file."""
+    def __init__(self, docopt_parsed, config_file):
+        self.docopt_parsed = dict([(o[2:], v) for o, v in docopt_parsed.iteritems()])
+        if not config_file:
+            self.config_file_parsed = dict()
+            return
+        if not os.path.isfile(config_file):
+            raise self.ConfigError("Config file %s does not exist, not a file, or no permission." % config_file)
+        try:
+            with open(config_file, 'rb') as f:
+                self.config_file_parsed = yaml.load(f)
+        except IOError:
+            raise self.ConfigError("Unable to read config file %s." % config_file)
+        except yaml.reader.ReaderError:
+            raise self.ConfigError("Unable to read config file %s, invalid data." % config_file)
+        except (yaml.scanner.ScannerError, yaml.parser.ParserError) as e:
+            if r"found character '\t' that cannot start any token" in str(e):
+                raise self.ConfigError("Tab character found in config file %s. Must use spaces only!" % config_file)
+            raise self.ConfigError("Config file %s contents not YAML formatted: %s" % (config_file, e))
+        if not isinstance(self.config_file_parsed, dict):
+            raise self.ConfigError(
+                "Config file %s contents didn't yield dict or not YAML: %s" % (config_file, self.config_file_parsed)
+            )
+        for key in self.config_file_parsed:
+            if key not in self.docopt_parsed:
+                raise self.ConfigError("Unknown option %s in config file %s." % (key, config_file))
+            if isinstance(self.docopt_parsed[key], bool) and not isinstance(self.config_file_parsed[key], bool):
+                raise self.ConfigError("Config file option %s must be True or False." % key)
+
+    class ConfigError(Exception):
+        """Raised when insufficient/invalid config file or CLI options are given."""
+        pass
+
+    def merge(self):
+        """Merges command line options and config file options, config file taking precedence."""
+        config = self.docopt_parsed.copy()
+        for key, value in config.iteritems():
+            if isinstance(value, str) and value.isdigit():
+                config[key] = int(value)
+        for key, value in self.config_file_parsed.iteritems():
+            config[key] = value
+        return config
+
+
 def get_config(cli_args, test=False):
-    """Reads command line arguments/options and (if provided) reads/overrides settings from config file."""
-    config = dict(daemon=False, quiet=False, verbose=False, interval=60, log=None, domain=None, passwd=None, user=None,
-                  pid=None, registrar=None)
-    # Read from command line.
-    for option, value in ((o[2:], v) for o, v in cli_args.iteritems() if o[2:] in config):
-        if option in ('daemon', 'quiet', 'verbose') and value:
-            # User set one of these options to true (by specifying the flag).
-            config[option] = True
-        elif option == 'interval':
-            if not value.isdigit():
-                raise ConfigError("%s in command line must be an integer only." % option)
-            value = int(value)
-            if not value:
-                raise ConfigError("%s in command line must be greater than 0." % option)
-            config[option] = value
-        elif option in ('log', 'pid') and value:
-            if not os.path.exists(os.path.dirname(value)):
-                raise ConfigError("Parent directory of %s file does not exist." % option)
-            config[option] = value
-        elif value:
-            config[option] = value
+    """Verifies all the required config options for UnofficialDDNS are satisfied."""
+    # Read from multiple sources and get final config.
+    multi_config = MultipleConfigSources(cli_args, cli_args.get('--config', ''))
+    config = multi_config.merge()
+    if test:
+        # Skip checks if testing.
+        return config
     config['registrar'] = 'name.com'  # In the future I might support other registrars.
 
-    # Read from configuration file, if specified. Overrides command line.
-    config_file = dict()
-    if '--config' in cli_args and cli_args['--config']:
-        if not os.path.isfile(cli_args['--config']):
-            raise ConfigError("Specified config file %s does not exist or is not a file." % cli_args['--config'])
-        try:
-            with open(cli_args['--config'], 'r') as f:
-                for line in (l.strip() for l in f):
-                    split = re.split(r"\s*", line.lower(), maxsplit=2)
-                    if len(split) != 2 or split[0] not in config:
-                        if set(line).issubset(set(string.printable)):
-                            message = "Invalid line in config file: %s" % line
-                        else:
-                            message = "Invalid line in config file."
-                        raise ConfigError(message)
-                    config_file[split[0]] = split[1]
-        except IOError:
-            raise ConfigError("Unable to read file %s" % cli_args['--config'])
-    for option, value in config_file.iteritems():
-        if option in ('daemon', 'quiet', 'verbose'):
-            if value == 'true':
-                config[option] = True
-            elif value == 'false':
-                config[option] = False
-            else:
-                raise ConfigError("%s in config file must be true or false only." % option)
-        elif option == 'interval':
-            if not value.isdigit():
-                raise ConfigError("%s in config file must be an integer only." % option)
-            value = int(value)
-            if not value:
-                raise ConfigError("%s in config file must be greater than 0." % option)
-            config[option] = value
-        elif option == 'log':
-            if not os.path.exists(os.path.dirname(value)):
-                raise ConfigError("Parent directory of log file does not exist.")
-            config[option] = value
-        else:
-            config[option] = value
+    # Validate interval.
+    if not isinstance(config['interval'], int):
+        raise multi_config.ConfigError("Config option 'interval' must be a number.")
+    if not config['interval']:
+        raise multi_config.ConfigError("Config option 'interval' must be greater than 0.")
+
+    # Validate pid and log.
+    for option in ('log', 'pid'):
+        if not config[option]:
+            continue
+        parent = os.path.dirname(config[option])
+        if not os.path.exists(parent):
+            raise multi_config.ConfigError("Parent directory %s of %s file does not exist." % (parent, option))
+        if not os.access(parent, os.W_OK):
+            raise multi_config.ConfigError("Parent directory %s of %s file not writable." % (parent, option))
 
     # Now make sure we got everything we need.
-    if (not config['domain'] or not config['user'] or not config['passwd']) and not test:
-        raise ConfigError("A domain, username, and password must be specified.")
+    if not all([config.get(o, None) for o in ('domain', 'user', 'passwd')]):
+        raise multi_config.ConfigError("A domain, username, and password must be specified.")
 
     # Done.
     return config
