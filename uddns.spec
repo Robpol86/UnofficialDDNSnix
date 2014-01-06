@@ -23,15 +23,16 @@ mkdir -p "%{buildroot}%{_datarootdir}/%{name}"  # /usr/share
 mkdir -p "%{buildroot}%{_localstatedir}/%{name}"  # /var
 mkdir -p "%{buildroot}%{_sysconfdir}"  # /etc
 mkdir -p "%{buildroot}%{_bindir}"  # /usr/bin
-cp -r daemon *.py LICENSE README.md "%{buildroot}%{_datarootdir}/%{name}"
+cp -r yaml daemon *.py LICENSE README.md "%{buildroot}%{_datarootdir}/%{name}"
 ln -s "%{_datarootdir}/%{name}/%{name}.py" "%{buildroot}%{_bindir}/%{name}"
 ln -s "%{name}.py" "%{buildroot}%{_datarootdir}/%{name}/%{name}"
 cat << EOF > "%{buildroot}%{_sysconfdir}/%{name}.conf"
-daemon  True
-log     %{_localstatedir}/%{name}/%{name}.log
-domain  server.yourdomain.com #replace me
-user    myuser #replace me
-passwd  mypassword #replace me
+daemon: True
+log:    %{_localstatedir}/%{name}/%{name}.log
+pid:    %{_localstatedir}/%{name}/%{name}.lock
+domain: server.yourdomain.com #replace me
+user:   myuser #replace me
+passwd: mypassword #replace me
 EOF
 
 %clean
@@ -46,6 +47,12 @@ exit 0
 
 %files
 %defattr(644,root,root,755)
+%dir %{_datarootdir}/%{name}/yaml
+%dir %{_datarootdir}/%{name}/daemon
+%dir %{_datarootdir}/%{name}/daemon/version
+%{_datarootdir}/%{name}/yaml/LICENSE
+%{_datarootdir}/%{name}/yaml/README
+%{_datarootdir}/%{name}/yaml/CHANGES
 %{_datarootdir}/%{name}/daemon/LICENSE*
 %{_datarootdir}/%{name}/daemon/ChangeLog
 %{_datarootdir}/%{name}/LICENSE
@@ -53,6 +60,7 @@ exit 0
 %{_bindir}/%{name}
 %{_datarootdir}/%{name}/%{name}
 %{_sysconfdir}/%{name}.conf
+%attr(755,root,root) %{_datarootdir}/%{name}/yaml/*.py*
 %attr(755,root,root) %{_datarootdir}/%{name}/daemon/*.py*
 %attr(755,root,root) %{_datarootdir}/%{name}/daemon/version/*.py*
 %attr(755,root,root) %{_datarootdir}/%{name}/*.py*
