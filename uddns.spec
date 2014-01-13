@@ -7,8 +7,9 @@ License:    MIT
 URL:        {{URL}}
 Source0:    %{name}-%{version}.tar.gz
 
-BuildArch:  noarch
-BuildRequires:  python
+BuildArch: noarch
+BuildRequires: python >= 2.6
+Requires: python >= 2.6
 Requires(pre): shadow-utils
 Requires(post): chkconfig
 Requires(preun): chkconfig
