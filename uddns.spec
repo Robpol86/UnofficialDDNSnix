@@ -2,14 +2,15 @@ Name:       {{NAME}}
 Version:    {{VERSION}}
 Release:    1%{?dist}
 Summary:    {{SUMMARY}}
+Group:      System Environment/Daemons
 
 License:    MIT
 URL:        {{URL}}
 Source0:    %{name}-%{version}.tar.gz
 
 BuildArch: noarch
-BuildRequires: python >= 2.6
-Requires: python >= 2.6
+BuildRequires: /usr/bin/python2.6
+Requires: /usr/bin/python2.6
 Requires(pre): shadow-utils
 Requires(post): chkconfig
 Requires(preun): chkconfig
