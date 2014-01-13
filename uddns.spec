@@ -82,7 +82,7 @@ fi
 %{_datarootdir}/%{name}/README.md
 %{_bindir}/%{name}
 %{_datarootdir}/%{name}/%{name}
-%config %{_sysconfdir}/%{name}.yaml
+%config %attr(640,root,uddns) %{_sysconfdir}/%{name}.yaml
 %attr(755,root,root) %{_initrddir}/%{name}
 %attr(755,root,root) %{_datarootdir}/%{name}/yaml/*.py*
 %attr(755,root,root) %{_datarootdir}/%{name}/daemon/*.py*

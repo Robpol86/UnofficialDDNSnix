@@ -1,0 +1,10 @@
+Package: {{NAME}}
+Version: {{VERSION}}
+Architecture: all
+Essential: no
+Section: web
+Priority: optional
+Depends: python (>=2.6)
+Maintainer: Robpol86
+Installed-Size: {{SIZE}}
+Description: {{SUMMARY}}
