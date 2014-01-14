@@ -76,7 +76,11 @@ def main(config):
             with Registrar(config) as session:
                 logger.info("Current public IP is %s." % session.current_ip)
 
-                if len(session.recorded_ips) != 1:
+                if not len(session.recorded_ips):
+                    logger.info("No records. Updating domain.")
+                    decider(session)
+                    logger.info("Done making changes.")
+                elif len(session.recorded_ips) != 1:
                     logger.info("Too many records. Updating domain.")
                     decider(session)
                     logger.info("Done making changes.")
