@@ -25,15 +25,13 @@ Requires(postun): initscripts
 
 %install
 rm -rf %{buildroot}
-mkdir -p "%{buildroot}%{_datarootdir}/%{name}"  # /usr/share
+mkdir -p "%{buildroot}/usr/share/%{name}"  # /usr/share
 mkdir -p "%{buildroot}%{_localstatedir}/%{name}"  # /var
 mkdir -p "%{buildroot}%{_sysconfdir}"  # /etc
-mkdir -p "%{buildroot}%{_bindir}"  # /usr/bin
-mkdir -p "%{buildroot}%{_initrddir}"  # /etc/rc.d/init.d
-cp -r yaml daemon *.py LICENSE README.md "%{buildroot}%{_datarootdir}/%{name}"
-cp UnofficialDDNS.sysvinit.sh "%{buildroot}%{_initrddir}/%{name}"
-ln -s "%{_datarootdir}/%{name}/%{name}.py" "%{buildroot}%{_bindir}/%{name}"
-ln -s "%{name}.py" "%{buildroot}%{_datarootdir}/%{name}/%{name}"
+mkdir -p "%{buildroot}/etc/rc.d/init.d"  # /etc/rc.d/init.d
+cp -r yaml daemon *.py LICENSE README.md "%{buildroot}/usr/share/%{name}"
+cp UnofficialDDNS.sysvinit.sh "%{buildroot}/etc/rc.d/init.d/%{name}"
+ln -s "%{name}.py" "%{buildroot}/usr/share/%{name}/%{name}"
 cat << EOF > "%{buildroot}%{_sysconfdir}/%{name}.yaml"
 log:    %{_localstatedir}/%{name}/%{name}.log
 pid:    %{_localstatedir}/%{name}/%{name}.pid
@@ -56,12 +54,12 @@ exit 0
 
 %post
 # This adds the proper /etc/rc*.d links for the script
-/sbin/chkconfig --add %{_initrddir}/%{name}
+/sbin/chkconfig --add /etc/rc.d/init.d/%{name}
 
 %preun
 if [ $1 -eq 0 ] ; then
-    /sbin/service %{_initrddir}/%{name} stop >/dev/null 2>&1
-    /sbin/chkconfig --del %{_initrddir}/%{name}
+    /sbin/service /etc/rc.d/init.d/%{name} stop >/dev/null 2>&1
+    /sbin/chkconfig --del /etc/rc.d/init.d/%{name}
 fi
 
 %postun
@@ -71,25 +69,24 @@ fi
 
 %files
 %defattr(644,root,root,755)
-%dir %{_datarootdir}/%{name}
-%dir %{_datarootdir}/%{name}/yaml
-%dir %{_datarootdir}/%{name}/daemon
-%dir %{_datarootdir}/%{name}/daemon/version
-%{_datarootdir}/%{name}/yaml/LICENSE
-%{_datarootdir}/%{name}/yaml/README
-%{_datarootdir}/%{name}/yaml/CHANGES
-%{_datarootdir}/%{name}/daemon/LICENSE*
-%{_datarootdir}/%{name}/daemon/ChangeLog
-%{_datarootdir}/%{name}/LICENSE
-%{_datarootdir}/%{name}/README.md
-%{_bindir}/%{name}
-%{_datarootdir}/%{name}/%{name}
+%dir /usr/share/%{name}
+%dir /usr/share/%{name}/yaml
+%dir /usr/share/%{name}/daemon
+%dir /usr/share/%{name}/daemon/version
+/usr/share/%{name}/yaml/LICENSE
+/usr/share/%{name}/yaml/README
+/usr/share/%{name}/yaml/CHANGES
+/usr/share/%{name}/daemon/LICENSE*
+/usr/share/%{name}/daemon/ChangeLog
+/usr/share/%{name}/LICENSE
+/usr/share/%{name}/README.md
+/usr/share/%{name}/%{name}
 %config %attr(640,root,uddns) %{_sysconfdir}/%{name}.yaml
-%attr(755,root,root) %{_initrddir}/%{name}
-%attr(755,root,root) %{_datarootdir}/%{name}/yaml/*.py*
-%attr(755,root,root) %{_datarootdir}/%{name}/daemon/*.py*
-%attr(755,root,root) %{_datarootdir}/%{name}/daemon/version/*.py*
-%attr(755,root,root) %{_datarootdir}/%{name}/*.py*
+%attr(755,root,root) /etc/rc.d/init.d/%{name}
+%attr(755,root,root) /usr/share/%{name}/yaml/*.py*
+%attr(755,root,root) /usr/share/%{name}/daemon/*.py*
+%attr(755,root,root) /usr/share/%{name}/daemon/version/*.py*
+%attr(755,root,root) /usr/share/%{name}/*.py*
 %dir %attr(755,uddns,uddns) %{_localstatedir}/%{name}
 
 %changelog

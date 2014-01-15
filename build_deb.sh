@@ -16,13 +16,12 @@ SOURCE="$HOME/debbuild"
 # Build directory structure.
 [ -d $SOURCE ] && rm -rf $SOURCE
 mkdir -p $SOURCE/DEBIAN $SOURCE/etc/init.d $SOURCE/var/$NAME
-mkdir -p $SOURCE/usr/share/$NAME $SOURCE/usr/bin
+mkdir -p $SOURCE/usr/share/$NAME
 
 # Copy main files.
 cp -r yaml daemon *.py LICENSE README.md $SOURCE/usr/share/$NAME
 cp UnofficialDDNS.lsbinit.sh $SOURCE/etc/init.d/$NAME
 cp control $SOURCE/DEBIAN
-ln -s /usr/share/$NAME/$NAME.py $SOURCE/usr/bin/$NAME
 ln -s $NAME.py $SOURCE/usr/share/$NAME/$NAME
 python -m compileall $SOURCE/usr/share/$NAME > /dev/null
 python -O -m compileall $SOURCE/usr/share/$NAME > /dev/null
