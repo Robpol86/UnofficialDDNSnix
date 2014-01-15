@@ -26,7 +26,7 @@ ln -s $NAME.py $SOURCE/usr/share/$NAME/$NAME
 python -m compileall $SOURCE/usr/share/$NAME > /dev/null
 python -O -m compileall $SOURCE/usr/share/$NAME > /dev/null
 
-# Generate files.
+# Generate config file.
 cat > $SOURCE/etc/$NAME.yaml << EOF
 log:    /var/$NAME/$NAME.log
 pid:    /var/$NAME/$NAME.pid
@@ -37,9 +37,13 @@ passwd: mypassword #replace me
 domain: server.yourdomain.com #replace me
 EOF
 echo "/etc/UnofficialDDNS.yaml" > $SOURCE/DEBIAN/conffiles
+
+# Generate md5sums.
 (cd $SOURCE && \
     find . -type f ! -regex '.*?DEBIAN.*' -printf '%P ' |xargs md5sum) > \
     $SOURCE/DEBIAN/md5sums
+
+# Generate postinst.
 cat > $SOURCE/DEBIAN/postinst << EOF
 #!/bin/sh
 update-rc.d -f $NAME defaults
@@ -51,8 +55,18 @@ chown -R uddns:uddns /var/$NAME
 chown root:uddns /etc/$NAME.yaml
 exit 0
 EOF
+
+# Generate preinst.
+cat > $SOURCE/DEBIAN/preinst << EOF
+#!/bin/sh
+[ -f /etc/init.d/$NAME ] && /usr/sbin/service $NAME stop
+exit 0
+EOF
+
+# Generate prerm.
 cat > $SOURCE/DEBIAN/prerm << EOF
 #!/bin/sh
+/usr/sbin/service $NAME stop
 [ "\$1" = "remove" ] && update-rc.d -f $NAME remove
 exit 0
 EOF

@@ -58,13 +58,13 @@ exit 0
 
 %preun
 if [ $1 -eq 0 ] ; then
-    /sbin/service /etc/rc.d/init.d/%{name} stop >/dev/null 2>&1
+    /sbin/service %{name} stop >/dev/null 2>&1
     /sbin/chkconfig --del /etc/rc.d/init.d/%{name}
 fi
 
 %postun
 if [ "$1" -ge "1" ] ; then
-    /sbin/service <script> condrestart >/dev/null 2>&1 || :
+    /sbin/service %{name} restart >/dev/null 2>&1 || :
 fi
 
 %files
