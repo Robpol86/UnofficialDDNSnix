@@ -53,19 +53,21 @@ getent passwd uddns >/dev/null || \
 exit 0
 
 %post
-# This adds the proper /etc/rc*.d links for the script
 /sbin/chkconfig --add /etc/rc.d/init.d/%{name}
+/sbin/chkconfig %{name} off
+exit 0
 
 %preun
-if [ $1 -eq 0 ] ; then
-    /sbin/service %{name} stop >/dev/null 2>&1
+/sbin/service %{name} status >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    # Installed and running.
+    /sbin/service %{name} stop
+fi
+if [ $1 -eq 0 ]; then
+    # Only for uninstall, not upgrades.
     /sbin/chkconfig --del /etc/rc.d/init.d/%{name}
 fi
-
-%postun
-if [ "$1" -ge "1" ] ; then
-    /sbin/service %{name} restart >/dev/null 2>&1 || :
-fi
+exit 0
 
 %files
 %defattr(644,root,root,755)
@@ -90,6 +92,6 @@ fi
 %dir %attr(755,uddns,uddns) %{_localstatedir}/%{name}
 
 %changelog
-* Sun Jan 04 2014 Robpol86 <robpol86@gmail.com>
+* Sun Jan 15 2014 Robpol86 <robpol86@gmail.com>
 - initial build
 

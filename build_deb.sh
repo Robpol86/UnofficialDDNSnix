@@ -43,37 +43,40 @@ echo "/etc/UnofficialDDNS.yaml" > $SOURCE/DEBIAN/conffiles
     find . -type f ! -regex '.*?DEBIAN.*' -printf '%P ' |xargs md5sum) > \
     $SOURCE/DEBIAN/md5sums
 
-# Generate postinst.
-cat > $SOURCE/DEBIAN/postinst << EOF
+# Generate preinst.
+cat > $SOURCE/DEBIAN/preinst << EOF
 #!/bin/sh
-update-rc.d -f $NAME defaults
 getent group uddns >/dev/null || groupadd -r uddns
 getent passwd uddns >/dev/null || \
     useradd -r -g uddns -d /var/$NAME -s /sbin/nologin \
     -c "Service account for $NAME" uddns
-chown -R uddns:uddns /var/$NAME
-chown root:uddns /etc/$NAME.yaml
 exit 0
 EOF
 
-# Generate preinst.
-cat > $SOURCE/DEBIAN/preinst << EOF
+# Generate postinst.
+cat > $SOURCE/DEBIAN/postinst << EOF
 #!/bin/sh
-[ -f /etc/init.d/$NAME ] && /usr/sbin/service $NAME stop
+chown -R uddns:uddns /var/$NAME
+chown root:uddns /etc/$NAME.yaml
+update-rc.d -f $NAME disable
 exit 0
 EOF
 
 # Generate prerm.
 cat > $SOURCE/DEBIAN/prerm << EOF
 #!/bin/sh
-/usr/sbin/service $NAME stop
+/usr/sbin/service $NAME status >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    # Installed and running.
+    /usr/sbin/service $NAME stop
+fi
 [ "\$1" = "remove" ] && update-rc.d -f $NAME remove
 exit 0
 EOF
 
 # Set permissions.
 chmod 640 $SOURCE/etc/$NAME.yaml
-chmod 755 $SOURCE/DEBIAN/postinst $SOURCE/DEBIAN/prerm $SOURCE/etc/init.d/$NAME
+(cd $SOURCE/DEBIAN && chmod 755 postinst preinst prerm ../etc/init.d/$NAME)
 find $SOURCE -type f -name \*.py\* -printf '%p ' |xargs chmod 755
 
 # Replace placeholders.
