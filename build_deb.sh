@@ -58,7 +58,7 @@ cat > $SOURCE/DEBIAN/postinst << EOF
 #!/bin/sh
 chown -R uddns:uddns /var/$NAME
 chown root:uddns /etc/$NAME.yaml
-update-rc.d -f $NAME disable
+update-rc.d -f $NAME defaults
 exit 0
 EOF
 
