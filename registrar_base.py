@@ -134,10 +134,6 @@ class RegistrarBase(object):
             logger.debug("Response: %s" % data.response)
             logger.debug("JSON: %s" % data.json)
             raise self.RegistrarException("'session_token' not in JSON.")
-        if not re.match(r"^([A-Fa-f0-9]){10,46}$", data.json['session_token']):
-            logger.debug("Response: %s" % data.response)
-            logger.debug("JSON: %s" % data.json)
-            raise self.RegistrarException("'session_token' is invalid.")
         self._session_token = data.json['session_token']
         logger.debug("Method authenticate end.")
 
